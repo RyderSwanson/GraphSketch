@@ -1,5 +1,5 @@
 var backgroundColor = 220;
-var vertexRadius = 20;
+var vertexRadius = 50;
 var adjacencyList = [];
 var menuHeight = 70;
 var selectionList = [];
@@ -7,11 +7,35 @@ var selectionList = [];
 const Mode = {
   PLACE_VERTEX: 0,
   PLACE_EDGE: 1,
+  SELECT: 2,
 };
 
 var mode;
 var placeVertexButton;
 var placeEdgeButton;
+
+class Vertex {
+  constructor(x, y, i) {
+    this.x = x;
+    this.y = y;
+    this.i = i; // id
+    this.fillColor = 200;
+    this.strokeColor = "black";
+    this.textColor = "black"
+    this.radius = vertexRadius;
+  }
+
+  draw() {
+    stroke(this.strokeColor);
+    fill(this.fillColor);
+    circle(this.x, this.y, this.radius);
+    fill(this.textColor);
+    if (this.i < 10)
+      text(this.i, this.x - 4, this.y + 5);
+    else
+      text(this.i, this.x - 8, this.y + 5);
+  }
+}
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -32,11 +56,19 @@ function setup() {
     mode = Mode.PLACE_EDGE;
   })
 
+  selectButton = createButton('Select');
+  selectButton.position(250, menuHeight / 2 - 10);
+  selectButton.mousePressed(function() {
+    mode = Mode.SELECT;
+  })
+
+
   stroke(0);
 }
 
 function drawMenu() {
   fill(200);
+  stroke(200);
   rect(0, 0, windowWidth, menuHeight);
 }
 
@@ -51,60 +83,49 @@ function drawVertex(x, y, i) {
     text(i, x - 7, y + 5);
 }
 
-function drawEdges(i, edges) {
+function drawEdges() {
   fill(0);
-  x1 = adjacencyList[i][0]
-  y1 = adjacencyList[i][1]
-  last = -1;
-  for (var j = 0; j < edges.length; j++) {
-    x2 = adjacencyList[edges[j]][0];
-    y2 = adjacencyList[edges[j]][1];
-    // draws
-    //if (last == -1 || last != edges[j])
-    stroke(0);
-    noFill();
-    if (last != edges[j]) {
-      line(x1, y1, x2, y2);
-      last = edges[j];
+  stroke(0);
+  for (var i = 0; i < adjacencyList.length; i++) {
+    v1 = adjacencyList[i][0];
+    e = adjacencyList[i][1];
+    x1 = v1.x;
+    y1 = v1.y
+    for (var j = 0; j < e.length; j++) {
+      if (e[j] >= i) { // draws edge once in undirected graph
+        v2 = adjacencyList[e[j]][0];
+        x2 = v2.x;
+        y2 = v2.y;
+        line(x1, y1, x2, y2);
+      }
     }
-    else { // draws a curve .. still needs work
-      mx = (x1 + x2) / 2;
-      my = (y1 + y2) / 2;
-
-      r = Math.sqrt(
-        (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
-      );
-
-      theta = Math.atan(
-        (x2 - x1) / (y2 - y1)
-      );
-
-      arc(mx, my, r, r, PI / 2 - theta, - PI / 2 - theta);
-    }
-    last = edges[j];
   }
 }
 
 function drawAdjacencyList() {
+  drawEdges();
   for (var i = 0; i < adjacencyList.length; i++) {
-    v = adjacencyList[i];
-    x = v[0];
-    y = v[1];
-    e = adjacencyList[i][2];
-    drawEdges(i, e);
-  }
-  for (var i = 0; i < adjacencyList.length; i++) {
-    v = adjacencyList[i];
-    x = v[0];
-    y = v[1];
-    drawVertex(x, y, i);
+    v = adjacencyList[i][0];
+    v.draw();
   }
 }
 
 function draw() {
   background(backgroundColor);
   drawMenu();
-  drawAdjacencyList()
+
+  if (mouseIsPressed === true && selectionList.length > 0 && mode === Mode.SELECT) {
+    adjacencyList[selectionList[0]][0].x = mouseX; 
+    adjacencyList[selectionList[0]][0].y = mouseY; 
+  }
+
+  if (mouseIsPressed === false && mode === Mode.SELECT) {
+    while (selectionList.length > 0)
+      selectionList.pop();
+  }
+
+  drawAdjacencyList();
+
 }
 
 function mouseHitTest(x1, y1, x2, y2) {
@@ -121,37 +142,50 @@ function mouseHitTest(x1, y1, x2, y2) {
   return xhit && yhit;
 }
 
-// test each vertex for a hit
-// can be made faster with dictionary if too slow
-// if no hit place a new vertex
-// if hit try to connect two vertices with edge
-function mouseClicked() {
+function vertexHit() {
   hit = -1;
   for (var i = 0; i < adjacencyList.length; i++) {
-    v = adjacencyList[i];
-    x = v[0];
-    y = v[1];
-    if (mouseHitTest(x - vertexRadius / 2, y - vertexRadius / 2, x + vertexRadius / 2, y + vertexRadius / 2)) {
+    v = adjacencyList[i][0];
+    if (mouseHitTest(v.x - v.radius / 2, v.y - v.radius / 2, v.x + v.radius / 2, v.y + v.radius / 2)) {
       hit = i;
       break;
     }
   }
+  return hit;
+}
+
+// test each vertex for a hit
+// can be made faster with dictionary if too slow
+// if no hit place a new vertex
+// if hit try to connect two vertices with edge
+function mousePressed() {
+
+  hit = vertexHit();
 
   if (mode === Mode.PLACE_VERTEX) {
     if (mouseY > menuHeight + vertexRadius / 2)
-      adjacencyList.push([mouseX, mouseY, []]);
+      adjacencyList.push([new Vertex(mouseX, mouseY, adjacencyList.length), []]);
   }
 
   else if (mode === Mode.PLACE_EDGE) {
     if (hit != -1) {
       selectionList.push(hit);
-      if (selectionList.length == 2) {
-        adjacencyList[selectionList[0]][2].push(selectionList[1]);
-        selectionList.pop();
-        selectionList.pop();
+      adjacencyList[hit][0].strokeColor = "blue";
+      if (selectionList.length === 2) {
+        console.log(selectionList);
+        adjacencyList[selectionList[0]][1].push(selectionList[1]);
+        adjacencyList[selectionList[1]][1].push(selectionList[0]);
+        adjacencyList[selectionList[0]][0].strokeColor = "black";
+        adjacencyList[selectionList[1]][0].strokeColor = "black";
+        while (selectionList.length > 0)
+          selectionList.pop();
       }
-      console.log(selectionList);
+      console.log(adjacencyList);
     }
+  }
+
+  else if (mode === Mode.SELECT && hit !== -1) {
+    selectionList.push(hit);
   }
 
 }
