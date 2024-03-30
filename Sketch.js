@@ -1,75 +1,103 @@
-//Temp code stolen from https://github.com/fepegar/creative-coding/blob/master/stars/index.html
+var vertexRadius = 20;
+var adjacencyList = [];
+var menuHeight = 70;
 
-var slider;
-var n;
-var r;
-var theta;
-var theta2;
-var pIni;
-var pFin;
-var rotTheta = 0;
-var rotOmega = 0.005;
-var stars = [];
-var star;
-var nStars = 20;
+const Mode = {
+  PLACE_VERTEX: 0,
+  PLACE_EDGE: 1,
+};
+
+var mode;
+var placeVertexButton;
+var placeEdgeButton;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  r = 0.9 * min(height, width) / 2;
 
-  strokeCap(ROUND);
-  stroke(255, 200, 0, 150);
+  // default mode
+  mode = Mode.PLACE_VERTEX;
 
-  pIni = createVector(0,0);
-  pFin = createVector(0,0);
+  // setup the place vertex button
+  placeVertexButton = createButton('Place Vertex');
+  placeVertexButton.position(20, menuHeight/2-10);
+  placeVertexButton.mousePressed(function () {
+    mode = Mode.PLACE_VERTEX;
+  })
 
-  for(var i = 2; i < nStars+2; i++) {
-    stars.push(new Star(i));
+  placeEdgeButton = createButton('Place Edge');
+  placeEdgeButton.position(140, menuHeight/2-10);
+  placeEdgeButton.mousePressed(function () {
+    mode = Mode.PLACE_EDGE;
+  })
+}
+
+function drawMenu() {
+  fill(200);
+  rect(0, 0, windowWidth, menuHeight);
+}
+
+function drawVertex(x, y, id) {
+  fill(200);
+  circle(x, y, vertexRadius);
+  fill(0);
+  if (id < 10)
+    text(id, x - 4, y + 5);
+  else
+    text(id, x - 7, y + 5);
+}
+
+function drawEdge(edges) {
+
+}
+
+function drawAdjacencyList() {
+  for (var i = 0; i < adjacencyList.length; i++) {
+    v = adjacencyList[i];
+    x = v[0];
+    y = v[1];
+    drawVertex(x, y, i);
   }
-
 }
 
 function draw() {
-  background(0, 10, 70)
-  strokeWeight(5)
-  fill(255);
-  text(floor(frameRate()), 10, 20)
+  background(220);
 
-
-  nPointsA = floor(random(n));
-  nPointsB = floor(random(n));
-
-
-
-  strokeWeight(nStars/n);
-  translate(width/2, height/2);
-  rotate(-PI/2 + rotTheta);
-  rotTheta += rotOmega;
-  starIdx = floor(map(mouseX, 0, width, 0, stars.length-1));
-  stars[starIdx].draw();
+  drawMenu();
+  drawAdjacencyList()
 
 }
 
-
-function Star(nPoints) {
-  this.points = [];
-
-
-  var x, y;
-  for(var i = 0; i < nPoints; i++) {
-    theta = i * 2*PI / nPoints;
-    x = r * Math.cos(theta);
-    y = r * Math.sin(theta);
-    this.points.push(createVector(x, y))
+function mouseHitTest(x1, y1, x2, y2) {
+  var xhit = false;
+  var yhit = false;
+  if (mouseX >= x1 && mouseX <= x2) {
+    xhit = true;
   }
 
-  this.draw = function() {
-    for(var i = 0; i < nPoints; i++) {
-      pIni = this.points[i];
-      for(var j = i + 1; j < nPoints; j++) {
-        pFin = this.points[j];
-        line(pIni.x, pIni.y, pFin.x, pFin.y);
-      }
+  if (mouseY >= y1 && mouseY <= y2) {
+    yhit = true;
+  }
+
+  return xhit && yhit;
+}
+
+// test each vertex for a hit
+// can be made faster with dictionary if too slow
+// if no hit place a new vertex
+// if hit try to connect two vertices with edge
+function mouseClicked() {
+  hit = false;
+  for (const v of adjacencyList) {
+    x = v[0];
+    y = v[1];
+    if (mouseHitTest(x - vertexRadius / 2, y - vertexRadius / 2, x + vertexRadius / 2, y + vertexRadius / 2)) {
+      hit = true;
+      break;
     }
+  }
+
+  if (mode === Mode.PLACE_VERTEX) {
+    if (mouseY > menuHeight + vertexRadius / 2)
+      adjacencyList.push([mouseX, mouseY, []]);
   }
 }
