@@ -96,7 +96,43 @@ function drawEdges() {
         v2 = adjacencyList[e[j]][0];
         x2 = v2.x;
         y2 = v2.y;
-        line(x1, y1, x2, y2);
+
+        // find slope of the line
+        m = (y2 - y1) / (x2 - x1);
+
+        // creating control points that lie on the line between the two vertices
+        scale = .2;
+        curve_x1 = ((x1 - x2) * scale) + x1;
+        curve_y1 = ((y1 - y2) * scale) + y1;
+        curve_x2 = ((x2 - x1) * scale) + x2;
+        curve_y2 = ((y2 - y1) * scale) + y2;
+        
+        // Number of edges between the two vertices
+        num_edges = e.filter(x => x==v2.i).length;
+        // print(num_edges);
+
+        if (num_edges > 1) {
+          d = dist(x1, y1, x2, y2);
+          // move points perpendicular to the line
+          bend_amount = ((1 / (num_edges+1)) * (j+1)) - 0.5; // making bad assumption here that j cant be bigger than num_edges
+          bend_amount *= d / 2;
+          bend_amount *= num_edges/3;
+          curve_x1 += bend_amount * ((y2 - y1) / d);
+          curve_y1 += bend_amount * ((x1 - x2) / d);
+          curve_x2 += bend_amount * ((y2 - y1) / d);
+          curve_y2 += bend_amount * ((x1 - x2) / d);
+        }
+
+        // draw control points
+        // fill(0);
+        // circle(curve_x1, curve_y1, 5);
+        // circle(curve_x2, curve_y2, 5);
+
+
+        // Draw the edge
+        stroke(0);
+        noFill();
+        curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
       }
     }
   }
