@@ -1,8 +1,16 @@
-var backgroundColor = 220;
+var backgroundColor = '#d1d1d1';
+var menuColor = '#dbdbdb';
+var vertexColor = '#85C7F2';
+var edgeColor = '#000000';
+var textColor = '#000000';
+var buttonColor = '#636363';
+var selectedColor = '#E4FF1A';
 var vertexRadius = 50;
 var adjacencyList = [];
 var menuHeight = 70;
 var selectionList = [];
+var offsetX = 0;
+var offsetY = 0;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -19,21 +27,25 @@ class Vertex {
     this.x = x;
     this.y = y;
     this.i = i; // id
-    this.fillColor = 200;
-    this.strokeColor = "black";
-    this.textColor = "black"
     this.radius = vertexRadius;
+    this.selected = false;
   }
 
   draw() {
-    stroke(this.strokeColor);
-    fill(this.fillColor);
+    strokeWeight(4);
+    stroke(menuColor);
+    if (this.selected) {
+      stroke(selectedColor);
+    }
+    fill(vertexColor);
     circle(this.x, this.y, this.radius);
-    fill(this.textColor);
-    if (this.i < 10)
-      text(this.i, this.x - 4, this.y + 5);
-    else
-      text(this.i, this.x - 8, this.y + 5);
+    stroke(textColor);
+    strokeWeight(1);
+    fill(textColor);
+    textFont('Arial');
+    textSize(20);
+    textAlign(CENTER, CENTER);
+    text(this.i, this.x, this.y);
   }
 }
 
@@ -45,21 +57,39 @@ function setup() {
 
   // setup the place vertex button
   placeVertexButton = createButton('Place Vertex');
+  placeVertexButton.style('background-color', buttonColor);
+  placeVertexButton.style('color', 'white');
+  placeVertexButton.style('font-size', '20px');
   placeVertexButton.position(20, menuHeight / 2 - 10);
   placeVertexButton.mousePressed(function() {
     mode = Mode.PLACE_VERTEX;
+    // clear selection list
+    while (selectionList.length > 0)
+      selectionList.pop();
   })
 
   placeEdgeButton = createButton('Place Edge');
+  placeEdgeButton.style('background-color', buttonColor);
+  placeEdgeButton.style('color', 'white');
+  placeEdgeButton.style('font-size', '20px');
   placeEdgeButton.position(140, menuHeight / 2 - 10);
   placeEdgeButton.mousePressed(function() {
     mode = Mode.PLACE_EDGE;
+    // clear selection list
+    while (selectionList.length > 0)
+      selectionList.pop();
   })
 
   selectButton = createButton('Select');
+  selectButton.style('background-color', buttonColor);
+  selectButton.style('color', 'white');
+  selectButton.style('font-size', '20px');
   selectButton.position(250, menuHeight / 2 - 10);
   selectButton.mousePressed(function() {
     mode = Mode.SELECT;
+    // clear selection list
+    while (selectionList.length > 0)
+      selectionList.pop();
   })
 
 
@@ -67,8 +97,8 @@ function setup() {
 }
 
 function drawMenu() {
-  fill(200);
-  stroke(200);
+  fill(menuColor);
+  noStroke();
   rect(0, 0, windowWidth, menuHeight);
 }
 
@@ -86,53 +116,65 @@ function drawVertex(x, y, i) {
 function drawEdges() {
   fill(0);
   stroke(0);
+  // For each vertex in the adjacency list
   for (var i = 0; i < adjacencyList.length; i++) {
     v1 = adjacencyList[i][0];
     e = adjacencyList[i][1];
     x1 = v1.x;
     y1 = v1.y
-    for (var j = 0; j < e.length; j++) {
-      if (e[j] >= i) { // draws edge once in undirected graph
-        v2 = adjacencyList[e[j]][0];
-        x2 = v2.x;
-        y2 = v2.y;
 
-        // find slope of the line
-        m = (y2 - y1) / (x2 - x1);
+    list_of_unique_vertices = e.filter((x, i, a) => a.indexOf(x) == i);
+    list_of_lists_of_edges = [];
+    for (var j = 0; j < list_of_unique_vertices.length; j++) {
+      list_of_lists_of_edges.push(e.filter(x => x==list_of_unique_vertices[j]));
+    }
 
-        // creating control points that lie on the line between the two vertices
-        scale = .2;
-        curve_x1 = ((x1 - x2) * scale) + x1;
-        curve_y1 = ((y1 - y2) * scale) + y1;
-        curve_x2 = ((x2 - x1) * scale) + x2;
-        curve_y2 = ((y2 - y1) * scale) + y2;
-        
-        // Number of edges between the two vertices
-        num_edges = e.filter(x => x==v2.i).length;
-        // print(num_edges);
 
-        if (num_edges > 1) {
-          d = dist(x1, y1, x2, y2);
-          // move points perpendicular to the line
-          bend_amount = ((1 / (num_edges+1)) * (j+1)) - 0.5; // making bad assumption here that j cant be bigger than num_edges
-          bend_amount *= d / 2;
-          bend_amount *= num_edges/3;
-          curve_x1 += bend_amount * ((y2 - y1) / d);
-          curve_y1 += bend_amount * ((x1 - x2) / d);
-          curve_x2 += bend_amount * ((y2 - y1) / d);
-          curve_y2 += bend_amount * ((x1 - x2) / d);
+    // For each list in the list of lists
+    for (var j = 0; j < list_of_lists_of_edges.length; j++) {
+      // For each edge in the list
+      for (var k = 0; k < list_of_lists_of_edges[j].length; k++) {
+        if (list_of_unique_vertices[j] >= i) {
+          v2 = adjacencyList[list_of_unique_vertices[j]][0];
+          x2 = v2.x;
+          y2 = v2.y;
+
+          // find slope of the line
+          m = (y2 - y1) / (x2 - x1);
+
+          // creating control points that lie on the line between the two vertices
+          scale = .2;
+          curve_x1 = ((x1 - x2) * scale) + x1;
+          curve_y1 = ((y1 - y2) * scale) + y1;
+          curve_x2 = ((x2 - x1) * scale) + x2;
+          curve_y2 = ((y2 - y1) * scale) + y2;
+
+          // Number of edges between the two vertices
+          num_edges = list_of_lists_of_edges[j].length;
+
+          if (num_edges > 1) {
+            d = dist(x1, y1, x2, y2);
+            // move points perpendicular to the line
+            bend_amount = ((1 / (num_edges+1)) * (k+1)) - 0.5;
+            // 250 is the minimum bend amount
+            bend_amount *= (d / 2) + 250;
+            bend_amount *= num_edges/3;
+            curve_x1 += bend_amount * ((y2 - y1) / d);
+            curve_y1 += bend_amount * ((x1 - x2) / d);
+            curve_x2 += bend_amount * ((y2 - y1) / d);
+            curve_y2 += bend_amount * ((x1 - x2) / d);
+            // Draw the edge
+            stroke(0);
+            noFill();
+            curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
+          }
+          else {
+            // Draw the edge
+            stroke(0);
+            noFill();
+            curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
+          }
         }
-
-        // draw control points
-        // fill(0);
-        // circle(curve_x1, curve_y1, 5);
-        // circle(curve_x2, curve_y2, 5);
-
-
-        // Draw the edge
-        stroke(0);
-        noFill();
-        curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
       }
     }
   }
@@ -151,8 +193,9 @@ function draw() {
   drawMenu();
 
   if (mouseIsPressed === true && selectionList.length > 0 && mode === Mode.SELECT) {
-    adjacencyList[selectionList[0]][0].x = mouseX; 
-    adjacencyList[selectionList[0]][0].y = mouseY; 
+    // accounting for offset
+    adjacencyList[selectionList[0]][0].x = mouseX - offsetX; 
+    adjacencyList[selectionList[0]][0].y = mouseY - offsetY; 
   }
 
   if (mouseIsPressed === false && mode === Mode.SELECT) {
@@ -222,6 +265,23 @@ function mousePressed() {
 
   else if (mode === Mode.SELECT && hit !== -1) {
     selectionList.push(hit);
+
+    // Save offset from hit vertex to mouse
+    offsetX = mouseX - adjacencyList[hit][0].x;
+    offsetY = mouseY - adjacencyList[hit][0].y;    
   }
 
+  updateVertexSelected(selectionList);
+
+}
+
+function updateVertexSelected(selectionList) {
+  // set all vertices to unselected
+  for (var i = 0; i < adjacencyList.length; i++) {
+    adjacencyList[i][0].selected = false;
+  }
+  // set selected vertices to selected
+  for (var i = 0; i < selectionList.length; i++) {
+    adjacencyList[selectionList[i]][0].selected = true;
+  }
 }
