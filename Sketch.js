@@ -11,11 +11,16 @@ var menuHeight = 70;
 var selectionList = [];
 var offsetX = 0;
 var offsetY = 0;
+var input_text = '';
+var dragging = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
   PLACE_EDGE: 1,
   SELECT: 2,
+  DELETE_VERTEX: 3,
+  DELETE_EDGE: 4,
+  PLACE_LOOP: 5,
 };
 
 var mode;
@@ -29,6 +34,7 @@ class Vertex {
     this.i = i; // id
     this.radius = vertexRadius;
     this.selected = false;
+    this.name = '';
   }
 
   draw() {
@@ -45,7 +51,12 @@ class Vertex {
     textFont('Arial');
     textSize(20);
     textAlign(CENTER, CENTER);
-    text(this.i, this.x, this.y);
+    if (this.name !== '') {
+      text(this.name, this.x, this.y);
+    }
+    else {
+      text(this.i, this.x, this.y);
+    }
   }
 }
 
@@ -54,15 +65,28 @@ function setup() {
 
   // default mode
   mode = Mode.PLACE_VERTEX;
+  button_x_offset = ((windowWidth / 8) / 4);
 
   // setup the place vertex button
   placeVertexButton = createButton('Place Vertex');
   placeVertexButton.style('background-color', buttonColor);
   placeVertexButton.style('color', 'white');
   placeVertexButton.style('font-size', '20px');
-  placeVertexButton.position(20, menuHeight / 2 - 10);
+  placeVertexButton.position((windowWidth/8)*0 + button_x_offset, menuHeight / 2 - 15);
   placeVertexButton.mousePressed(function() {
     mode = Mode.PLACE_VERTEX;
+    // clear selection list
+    while (selectionList.length > 0)
+      selectionList.pop();
+  })
+
+  deleteVertexButton = createButton('Delete Vertex');
+  deleteVertexButton.style('background-color', buttonColor);
+  deleteVertexButton.style('color', 'white');
+  deleteVertexButton.style('font-size', '20px');
+  deleteVertexButton.position((windowWidth/8)*1 + button_x_offset, menuHeight / 2 - 15);
+  deleteVertexButton.mousePressed(function() {
+    mode = Mode.DELETE_VERTEX;
     // clear selection list
     while (selectionList.length > 0)
       selectionList.pop();
@@ -72,9 +96,21 @@ function setup() {
   placeEdgeButton.style('background-color', buttonColor);
   placeEdgeButton.style('color', 'white');
   placeEdgeButton.style('font-size', '20px');
-  placeEdgeButton.position(140, menuHeight / 2 - 10);
+  placeEdgeButton.position((windowWidth/8)*2 + button_x_offset, menuHeight / 2 - 15);
   placeEdgeButton.mousePressed(function() {
     mode = Mode.PLACE_EDGE;
+    // clear selection list
+    while (selectionList.length > 0)
+      selectionList.pop();
+  })
+
+  deleteEdgeButton = createButton('Delete Edge');
+  deleteEdgeButton.style('background-color', buttonColor);
+  deleteEdgeButton.style('color', 'white');
+  deleteEdgeButton.style('font-size', '20px');
+  deleteEdgeButton.position((windowWidth/8)*3 + button_x_offset, menuHeight / 2 - 15);
+  deleteEdgeButton.mousePressed(function() {
+    mode = Mode.DELETE_EDGE;
     // clear selection list
     while (selectionList.length > 0)
       selectionList.pop();
@@ -84,7 +120,7 @@ function setup() {
   selectButton.style('background-color', buttonColor);
   selectButton.style('color', 'white');
   selectButton.style('font-size', '20px');
-  selectButton.position(250, menuHeight / 2 - 10);
+  selectButton.position((windowWidth/8)*4 + button_x_offset, menuHeight / 2 - 15);
   selectButton.mousePressed(function() {
     mode = Mode.SELECT;
     // clear selection list
@@ -92,8 +128,27 @@ function setup() {
       selectionList.pop();
   })
 
+  renameButton = createButton('Rename');
+  renameButton.style('background-color', buttonColor);
+  renameButton.style('color', 'white');
+  renameButton.style('font-size', '20px');
+  renameButton.position((windowWidth/8)*6 + button_x_offset, menuHeight / 2 - 15);
+  renameButton.mousePressed(function() {
+    adjacencyList[selectionList[0]][0].name = input_text;
+    renameBox.value('');
+    input_text = '';
+  })
+
+  renameBox = createInput();
+  renameBox.position((windowWidth/8)*7 + button_x_offset, menuHeight / 2 - 15);
+  renameBox.size(100, 30);
+  renameBox.value('');
+  renameBox.input(function() {
+    input_text = renameBox.value();
+  });
 
   stroke(0);
+  updateButtonColors();
 }
 
 function drawMenu() {
@@ -102,16 +157,6 @@ function drawMenu() {
   rect(0, 0, windowWidth, menuHeight);
 }
 
-function drawVertex(x, y, i) {
-  stroke("black");
-  fill(200);
-  circle(x, y, vertexRadius);
-  fill(0);
-  if (i < 10)
-    text(i, x - 4, y + 5);
-  else
-    text(i, x - 7, y + 5);
-}
 
 function drawEdges() {
   fill(0);
@@ -134,7 +179,25 @@ function drawEdges() {
     for (var j = 0; j < list_of_lists_of_edges.length; j++) {
       // For each edge in the list
       for (var k = 0; k < list_of_lists_of_edges[j].length; k++) {
-        if (list_of_unique_vertices[j] >= i) {
+        // Check if loop
+        if (list_of_unique_vertices[j] === i) {
+          // Draw the loop
+          stroke(edgeColor);
+          strokeWeight(4);
+          noFill();
+          // Determine angle based on number of loops
+          angle = (2*PI) / (list_of_lists_of_edges[j].length) * k;
+          min_angle = PI / 4;
+          angle_offset = (PI / 4) / (list_of_lists_of_edges[j].length) + min_angle;
+          // Determine control points
+          scale = 1000;
+          curve_x1 = x1 + (scale * cos(angle));
+          curve_y1 = y1 + (scale * sin(angle));
+          curve_x2 = x1 + (scale * cos(angle + angle_offset));
+          curve_y2 = y1 + (scale * sin(angle + angle_offset));
+          curve(curve_x1, curve_y1, x1, y1, x1, y1, curve_x2, curve_y2);
+        }
+        else if (list_of_unique_vertices[j] >= i) {
           v2 = adjacencyList[list_of_unique_vertices[j]][0];
           x2 = v2.x;
           y2 = v2.y;
@@ -164,13 +227,15 @@ function drawEdges() {
             curve_x2 += bend_amount * ((y2 - y1) / d);
             curve_y2 += bend_amount * ((x1 - x2) / d);
             // Draw the edge
-            stroke(0);
+            stroke(edgeColor);
+            strokeWeight(4);
             noFill();
             curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
           }
           else {
             // Draw the edge
-            stroke(0);
+            stroke(edgeColor);
+            strokeWeight(4);
             noFill();
             curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
           }
@@ -192,15 +257,14 @@ function draw() {
   background(backgroundColor);
   drawMenu();
 
-  if (mouseIsPressed === true && selectionList.length > 0 && mode === Mode.SELECT) {
+  if (mouseIsPressed === true && selectionList.length > 0 && mode === Mode.SELECT && dragging) {
     // accounting for offset
     adjacencyList[selectionList[0]][0].x = mouseX - offsetX; 
     adjacencyList[selectionList[0]][0].y = mouseY - offsetY; 
   }
 
   if (mouseIsPressed === false && mode === Mode.SELECT) {
-    while (selectionList.length > 0)
-      selectionList.pop();
+    dragging = false;
   }
 
   drawAdjacencyList();
@@ -239,6 +303,7 @@ function vertexHit() {
 // if hit try to connect two vertices with edge
 function mousePressed() {
 
+  print(selectionList);
   hit = vertexHit();
 
   if (mode === Mode.PLACE_VERTEX) {
@@ -253,9 +318,11 @@ function mousePressed() {
       if (selectionList.length === 2) {
         console.log(selectionList);
         adjacencyList[selectionList[0]][1].push(selectionList[1]);
-        adjacencyList[selectionList[1]][1].push(selectionList[0]);
         adjacencyList[selectionList[0]][0].strokeColor = "black";
-        adjacencyList[selectionList[1]][0].strokeColor = "black";
+        if (selectionList[0] != selectionList[1]) {
+          adjacencyList[selectionList[1]][1].push(selectionList[0]);
+          adjacencyList[selectionList[1]][0].strokeColor = "black";
+        }
         while (selectionList.length > 0)
           selectionList.pop();
       }
@@ -263,16 +330,60 @@ function mousePressed() {
     }
   }
 
-  else if (mode === Mode.SELECT && hit !== -1) {
+  else if (mode === Mode.SELECT && hit > -1) {
     selectionList.push(hit);
+    dragging = true;
 
     // Save offset from hit vertex to mouse
     offsetX = mouseX - adjacencyList[hit][0].x;
     offsetY = mouseY - adjacencyList[hit][0].y;    
   }
 
-  updateVertexSelected(selectionList);
+  else if (mode === Mode.DELETE_VERTEX) {
+    if (hit !== -1) {
+      adjacencyList.splice(hit, 1);
+      for (var i = 0; i < adjacencyList.length; i++) {
+        for (var j = 0; j < adjacencyList[i][1].length; j++) {
+          // catch loops
+          if (adjacencyList[i][1][j] === hit && i !== hit) {
+            adjacencyList[i][1].splice(j, 1);
+          }
+        }
+      }
+    }
+  }
 
+  else if (mode === Mode.DELETE_EDGE) {
+    if (hit !== -1) {
+      selectionList.push(hit);
+      if (selectionList.length === 2) {
+        // catch loops
+        if (selectionList[0] !== selectionList[1]) {
+          for (var i = 0; i < adjacencyList[selectionList[0]][1].length; i++) {
+            if (adjacencyList[selectionList[0]][1][i] === selectionList[1]) {
+              adjacencyList[selectionList[0]][1].splice(i, 1);
+              break;
+            }
+          }
+        }
+        for (var i = 0; i < adjacencyList[selectionList[1]][1].length; i++) {
+          if (adjacencyList[selectionList[1]][1][i] === selectionList[0]) {
+            adjacencyList[selectionList[1]][1].splice(i, 1);
+            break;
+          }
+        }
+        while (selectionList.length > 0)
+          selectionList.pop();
+      }
+    }
+  }
+
+  // reduce selection list to 1 if it is greater than 1
+  if (selectionList.length > 1) {
+    selectionList.shift();
+  }
+  updateVertexSelected(selectionList);
+  updateButtonColors();
 }
 
 function updateVertexSelected(selectionList) {
@@ -283,5 +394,40 @@ function updateVertexSelected(selectionList) {
   // set selected vertices to selected
   for (var i = 0; i < selectionList.length; i++) {
     adjacencyList[selectionList[i]][0].selected = true;
+  }
+}
+
+function updateButtonColors() {
+  placeVertexButton.style('background-color', buttonColor);
+  placeVertexButton.style('color', 'white');
+  deleteVertexButton.style('background-color', buttonColor);
+  deleteVertexButton.style('color', 'white');
+  placeEdgeButton.style('background-color', buttonColor);
+  placeEdgeButton.style('color', 'white');
+  deleteEdgeButton.style('background-color', buttonColor);
+  deleteEdgeButton.style('color', 'white');
+  selectButton.style('background-color', buttonColor);
+  selectButton.style('color', 'white');
+  switch (mode) {
+    case Mode.PLACE_VERTEX:
+      placeVertexButton.style('background-color', selectedColor);
+      placeVertexButton.style('color', 'black');
+      break;
+    case Mode.DELETE_VERTEX:
+      deleteVertexButton.style('background-color', selectedColor);
+      deleteVertexButton.style('color', 'black');
+      break;
+    case Mode.PLACE_EDGE:
+      placeEdgeButton.style('background-color', selectedColor);
+      placeEdgeButton.style('color', 'black');
+      break;
+    case Mode.DELETE_EDGE:
+      deleteEdgeButton.style('background-color', selectedColor);
+      deleteEdgeButton.style('color', 'black');
+      break;
+    case Mode.SELECT:
+      selectButton.style('background-color', selectedColor);
+      selectButton.style('color', 'black');
+      break;
   }
 }
