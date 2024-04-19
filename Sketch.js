@@ -13,6 +13,7 @@ var offsetX = 0;
 var offsetY = 0;
 var input_text = '';
 var dragging = false;
+var render_degree = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -56,6 +57,15 @@ class Vertex {
     }
     else {
       text(this.i, this.x, this.y);
+    }
+
+    // Draw degree of vertex
+    if (render_degree) {
+      textSize(15);
+      textAlign(LEFT, TOP);
+      strokeWeight(4);
+      stroke(255);
+      text('d: ' + adjacencyList[this.i][1].length, this.x + this.radius / 2, this.y - this.radius / 2);
     }
   }
 }
@@ -145,6 +155,12 @@ function setup() {
   renameBox.value('');
   renameBox.input(function() {
     input_text = renameBox.value();
+  });
+
+  renderDegreeBox = createCheckbox('Render Degree', false);
+  renderDegreeBox.position((windowWidth/8)*5 + button_x_offset, menuHeight / 2 - 15);
+  renderDegreeBox.changed(function() {
+    render_degree = !render_degree;
   });
 
   stroke(0);
@@ -253,6 +269,33 @@ function drawAdjacencyList() {
   }
 }
 
+function drawInfo() {
+  // Drawing info about edges and verticies
+  fill(0);
+  stroke(0);
+  strokeWeight(1);
+  textSize(20);
+  textFont('Arial');
+  textAlign(LEFT, TOP);
+  text('Vertex Count: ' + adjacencyList.length, 10, menuHeight);
+  edgeCount = 0;
+  for (var i = 0; i < adjacencyList.length; i++) {
+    for (var j = 0; j < adjacencyList[i][1].length; j++) {
+      if (adjacencyList[i][1][j] >= i) {
+        edgeCount += 1;
+      }
+    }
+  }
+  text('Edge Count: ' + edgeCount, 10, menuHeight + 30);
+
+  // Total degree
+  total_degree = 0;
+  for (var i = 0; i < adjacencyList.length; i++) {
+    total_degree += adjacencyList[i][1].length;
+  }
+  text('Total Degree: ' + total_degree, 10, menuHeight + 60);
+}
+
 function draw() {
   background(backgroundColor);
   drawMenu();
@@ -268,7 +311,7 @@ function draw() {
   }
 
   drawAdjacencyList();
-
+  drawInfo();
 }
 
 function mouseHitTest(x1, y1, x2, y2) {
