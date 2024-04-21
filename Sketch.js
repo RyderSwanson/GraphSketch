@@ -15,6 +15,7 @@ var input_text = '';
 var enter_command = '';
 var dragging = false;
 var render_degree = false;
+var show_help = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -172,9 +173,36 @@ function setup() {
     render_degree = !render_degree;
   });
 
+  helpButton = createButton('Help');
+  helpButton.style('background-color', buttonColor);
+  helpButton.style('color', 'white');
+  helpButton.style('font-size', '20px');
+  helpButton.mousePressed(function() {
+    show_help = !show_help;
+  });
+
   stroke(0);
   updateButtonColors();
   updateButtonPositions();
+}
+
+function helpScreen() {
+  // Display help screen on canvas
+  var help_screen_x = windowWidth - 10;
+  var help_screen_y = 70;
+
+  fill(0);
+  stroke(0);
+  textSize(20);
+  textFont('Arial');
+  textAlign(RIGHT, TOP);
+  text('Commands:', help_screen_x, help_screen_y + 10);
+  text('/clear - Clears the current graph', help_screen_x, help_screen_y + 70);
+  text('/help - Displays this help screen', help_screen_x, help_screen_y + 100);
+  text('/generate random - Generates a random graph with random number of vertices', help_screen_x, help_screen_y + 160);
+  text('/generate cycle [num_vertices] - Generates a cycle graph with num_vertices vertices', help_screen_x, help_screen_y + 190);
+  text('/generate complete [num_vertices] - Generates a complete graph with num_vertices vertices', help_screen_x, help_screen_y + 220);
+  
 }
 
 function parseCommand(command) {
@@ -182,7 +210,44 @@ function parseCommand(command) {
   command = command.split(' ');
   if (command[0] === '/generate') {
     // check second argument
-    if (command[1] == 'complete') {
+    if (command.length < 2) {
+      print('Error: /generate requires a second argument');
+      return;
+    }
+    else if (command[1] == 'random') {
+      adjacencyList = [];
+      num_vertices = Math.floor(Math.random() * 10) + 1;
+      for (var i = 0; i < num_vertices; i++) {
+        x = Math.floor(Math.random() * windowWidth);
+        y = Math.floor(Math.random() * windowHeight);
+        adjacencyList.push([new Vertex(x, y, i), []]);
+      }
+      for (var i = 0; i < num_vertices; i++) {
+        for (var j = 0; j < num_vertices; j++) {
+          if (Math.random() < 0.2 && i !== j) {
+            num_parallel_edges = Math.floor(Math.random() * 3) + 1;
+            for (var k = 0; k < num_parallel_edges; k++) {
+              adjacencyList[i][1].push(j);
+            }
+          }
+        }
+      }
+    }
+    else if (command[1] == 'cycle') {
+      adjacencyList = [];
+      num_vertices = command[2];
+      for (var i = 0; i < num_vertices; i++) {
+        x = windowWidth / 2 + (min(windowWidth, windowHeight) / 2.25) * cos((2*PI) / num_vertices * i);
+        y = windowHeight / 2 + (min(windowWidth, windowHeight) / 2.25) * sin((2*PI) / num_vertices * i);
+        adjacencyList.push([new Vertex(x, y, i), []]);
+        adjacencyList[i][1].push((i+1) % num_vertices);
+        adjacencyList[i][1].push((i-1) % num_vertices);
+      }
+      // Connect the last vertex to the first
+      adjacencyList[num_vertices-1][1].push(0);
+      adjacencyList[0][1].push(num_vertices-1);
+    }
+    else if (command[1] == 'complete') {
       adjacencyList = [];
       num_vertices = command[2];
       for (var i = 0; i < num_vertices; i++) {
@@ -203,9 +268,7 @@ function parseCommand(command) {
     adjacencyList = [];
   }
   else if (command[0] === '/help') {
-    print('Commands:');
-    print('/generate [num_vertices] - Generates a random graph with num_vertices vertices');
-    print('/clear - Clears the current graph');
+    show_help = !show_help;
   }
 }
 
@@ -219,7 +282,7 @@ function windowResized() {
 
 function updateButtonPositions() {
   button_x_offset = ((windowWidth / 8) / 4);
-  button_grid_unit = windowWidth / 10;
+  button_grid_unit = windowWidth / 11;
   placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
   deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
   placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
@@ -230,6 +293,7 @@ function updateButtonPositions() {
   enterCommandButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 15);
   enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 15);
   renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
+  helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
 }
 
 function drawMenu() {
@@ -377,6 +441,9 @@ function draw() {
 
   drawAdjacencyList();
   drawInfo();
+  if (show_help) {
+    helpScreen();
+  }
 }
 
 function mouseHitTest(x1, y1, x2, y2) {
