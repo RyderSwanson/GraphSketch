@@ -12,6 +12,7 @@ var selectionList = [];
 var offsetX = 0;
 var offsetY = 0;
 var input_text = '';
+var enter_command = '';
 var dragging = false;
 var render_degree = false;
 
@@ -75,14 +76,12 @@ function setup() {
 
   // default mode
   mode = Mode.PLACE_VERTEX;
-  button_x_offset = ((windowWidth / 8) / 4);
 
   // setup the place vertex button
   placeVertexButton = createButton('Place Vertex');
   placeVertexButton.style('background-color', buttonColor);
   placeVertexButton.style('color', 'white');
   placeVertexButton.style('font-size', '20px');
-  placeVertexButton.position((windowWidth/8)*0 + button_x_offset, menuHeight / 2 - 15);
   placeVertexButton.mousePressed(function() {
     mode = Mode.PLACE_VERTEX;
     // clear selection list
@@ -94,7 +93,6 @@ function setup() {
   deleteVertexButton.style('background-color', buttonColor);
   deleteVertexButton.style('color', 'white');
   deleteVertexButton.style('font-size', '20px');
-  deleteVertexButton.position((windowWidth/8)*1 + button_x_offset, menuHeight / 2 - 15);
   deleteVertexButton.mousePressed(function() {
     mode = Mode.DELETE_VERTEX;
     // clear selection list
@@ -106,7 +104,6 @@ function setup() {
   placeEdgeButton.style('background-color', buttonColor);
   placeEdgeButton.style('color', 'white');
   placeEdgeButton.style('font-size', '20px');
-  placeEdgeButton.position((windowWidth/8)*2 + button_x_offset, menuHeight / 2 - 15);
   placeEdgeButton.mousePressed(function() {
     mode = Mode.PLACE_EDGE;
     // clear selection list
@@ -118,7 +115,6 @@ function setup() {
   deleteEdgeButton.style('background-color', buttonColor);
   deleteEdgeButton.style('color', 'white');
   deleteEdgeButton.style('font-size', '20px');
-  deleteEdgeButton.position((windowWidth/8)*3 + button_x_offset, menuHeight / 2 - 15);
   deleteEdgeButton.mousePressed(function() {
     mode = Mode.DELETE_EDGE;
     // clear selection list
@@ -130,7 +126,6 @@ function setup() {
   selectButton.style('background-color', buttonColor);
   selectButton.style('color', 'white');
   selectButton.style('font-size', '20px');
-  selectButton.position((windowWidth/8)*4 + button_x_offset, menuHeight / 2 - 15);
   selectButton.mousePressed(function() {
     mode = Mode.SELECT;
     // clear selection list
@@ -142,7 +137,6 @@ function setup() {
   renameButton.style('background-color', buttonColor);
   renameButton.style('color', 'white');
   renameButton.style('font-size', '20px');
-  renameButton.position((windowWidth/8)*6 + button_x_offset, menuHeight / 2 - 15);
   renameButton.mousePressed(function() {
     adjacencyList[selectionList[0]][0].name = input_text;
     renameBox.value('');
@@ -150,21 +144,92 @@ function setup() {
   })
 
   renameBox = createInput();
-  renameBox.position((windowWidth/8)*7 + button_x_offset, menuHeight / 2 - 15);
   renameBox.size(100, 30);
   renameBox.value('');
   renameBox.input(function() {
     input_text = renameBox.value();
   });
 
+  enterCommandButton = createButton('Enter Command');
+  enterCommandButton.style('background-color', buttonColor);
+  enterCommandButton.style('color', 'white');
+  enterCommandButton.style('font-size', '20px');
+  enterCommandButton.mousePressed(function() {
+    parseCommand(enter_command);
+    enterCommandBox.value('');
+    enter_command = '';
+  });
+
+  enterCommandBox = createInput();
+  enterCommandBox.size(100, 30);
+  enterCommandBox.value('');
+  enterCommandBox.input(function() {
+    enter_command = enterCommandBox.value();
+  });
+
   renderDegreeBox = createCheckbox('Render Degree', false);
-  renderDegreeBox.position((windowWidth/8)*5 + button_x_offset, menuHeight / 2 - 15);
   renderDegreeBox.changed(function() {
     render_degree = !render_degree;
   });
 
   stroke(0);
   updateButtonColors();
+  updateButtonPositions();
+}
+
+function parseCommand(command) {
+  print('test');
+  command = command.split(' ');
+  if (command[0] === '/generate') {
+    // check second argument
+    if (command[1] == 'complete') {
+      adjacencyList = [];
+      num_vertices = command[2];
+      for (var i = 0; i < num_vertices; i++) {
+        // Generate in a circle
+        x = windowWidth / 2 + (min(windowWidth, windowHeight) / 2.25) * cos((2*PI) / num_vertices * i);
+        y = windowHeight / 2 + (min(windowWidth, windowHeight) / 2.25) * sin((2*PI) / num_vertices * i);
+        adjacencyList.push([new Vertex(x, y, i), []]);
+        for (var j = 0; j < i; j++) {
+          adjacencyList[i][1].push(j);
+          adjacencyList[j][1].push(i);
+        }
+      }
+    
+    }
+    // other types of graphs
+  }
+  else if (command[0] === '/clear') {
+    adjacencyList = [];
+  }
+  else if (command[0] === '/help') {
+    print('Commands:');
+    print('/generate [num_vertices] - Generates a random graph with num_vertices vertices');
+    print('/clear - Clears the current graph');
+  }
+}
+
+
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+
+  // update button positions
+  updateButtonPositions();
+}
+
+function updateButtonPositions() {
+  button_x_offset = ((windowWidth / 8) / 4);
+  button_grid_unit = windowWidth / 10;
+  placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
+  deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
+  placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
+  deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
+  selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
+  renameButton.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
+  renameBox.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
+  enterCommandButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 15);
+  enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 15);
+  renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
 }
 
 function drawMenu() {
@@ -345,8 +410,6 @@ function vertexHit() {
 // if no hit place a new vertex
 // if hit try to connect two vertices with edge
 function mousePressed() {
-
-  print(selectionList);
   hit = vertexHit();
 
   if (mode === Mode.PLACE_VERTEX) {
@@ -359,7 +422,6 @@ function mousePressed() {
       selectionList.push(hit);
       adjacencyList[hit][0].strokeColor = "blue";
       if (selectionList.length === 2) {
-        console.log(selectionList);
         adjacencyList[selectionList[0]][1].push(selectionList[1]);
         adjacencyList[selectionList[0]][0].strokeColor = "black";
         if (selectionList[0] != selectionList[1]) {
@@ -369,7 +431,6 @@ function mousePressed() {
         while (selectionList.length > 0)
           selectionList.pop();
       }
-      console.log(adjacencyList);
     }
   }
 
@@ -386,13 +447,11 @@ function mousePressed() {
     if (hit !== -1) {
       adjacencyList.splice(hit, 1);
       for (var i = 0; i < adjacencyList.length; i++) {
-        for (var j = 0; j < adjacencyList[i][1].length; j++) {
-          // catch loops
-          if (adjacencyList[i][1][j] === hit && i !== hit) {
-            adjacencyList[i][1].splice(j, 1);
-          }
+        if (adjacencyList[i][1].includes(hit)) {
+          adjacencyList[i][1] = adjacencyList[i][1].filter(x => x !== hit);
         }
       }
+      updateVertexIndices();
     }
   }
 
@@ -427,6 +486,22 @@ function mousePressed() {
   }
   updateVertexSelected(selectionList);
   updateButtonColors();
+  print(adjacencyList);
+}
+
+function updateVertexIndices() {
+  for (var i = 0; i < adjacencyList.length; i++) {
+    if (adjacencyList[i][0].i !== i) {
+      for (var j = 0; j < adjacencyList.length; j++) {
+        for (var k = 0; k < adjacencyList[j][1].length; k++) {
+          if (adjacencyList[j][1][k] === adjacencyList[i][0].i) {
+            adjacencyList[j][1][k] = i;
+          }
+        }
+      }
+      adjacencyList[i][0].i = i;
+    }
+  }
 }
 
 function updateVertexSelected(selectionList) {

@@ -11,6 +11,7 @@ for “Graph Theorist’s Sketchpad” apps:
 7. ~~Ability to color or label vertices~~
 
 Recommended features (each +2):
+* Need all from this category to reach 87 points
 
 1. ~~Information about numbers of vertices and edges~~
 2. ~~Information about degrees of vertices~~
@@ -20,7 +21,7 @@ Recommended features (each +2):
 6. Show whether a graph is bipartite
 
 Additional bonus features (each +3):
-
+ * Need 4 from this category to reach 100
 1. Adjacency matrix and/or Laplacian matrix info
 2. Eigenvalues, eigenvectors for #1
 3. Quick Cartesian product constructions (e.g. 𝐺×𝐾2 for any 𝐺)
