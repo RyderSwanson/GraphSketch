@@ -23,7 +23,7 @@ Recommended features (each +2):
 Additional bonus features (each +3):
  * Need 4 from this category to reach 100
  
-1. Adjacency matrix and/or Laplacian matrix info
+1. ~~Adjacency matrix and/or Laplacian matrix info~~
 2. Eigenvalues, eigenvectors for #1
 3. Quick Cartesian product constructions (e.g. 𝐺×𝐾2 for any 𝐺)
 4. Heuristics for minimal colorings/Chromatic numbers

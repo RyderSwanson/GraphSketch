@@ -7,6 +7,7 @@ var buttonColor = '#636363';
 var selectedColor = '#E4FF1A';
 var vertexRadius = 50;
 var adjacencyList = [];
+var adjacencyMatrix = [];
 var edgeList = [];
 var menuHeight = 70;
 var vertexSelectionList = [];
@@ -22,6 +23,7 @@ var render_directions = false;
 var number_of_components = 0;
 var is_bipartite = false;
 var render_bridges = false;
+var render_info = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -207,6 +209,11 @@ function setup() {
     render_bridges = !render_bridges;
   });
 
+  renderInfoBox = createCheckbox('Render Info', false);
+  renderInfoBox.changed(function() {
+    render_info = !render_info;
+  });
+
   helpButton = createButton('Help');
   helpButton.style('background-color', buttonColor);
   helpButton.style('color', 'white');
@@ -228,13 +235,14 @@ function updateButtonPositions() {
   placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
   deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
   selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
-  renameButton.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
-  renameBox.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
-  enterCommandButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 15);
-  enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 15);
-  renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
-  renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
-  renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 45);
+  renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 30);
+  renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
+  renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2);
+  renderInfoBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
+  renameButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 + 5);
+  renameBox.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 30);
+  enterCommandButton.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 + 5);
+  enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 30);
   helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
 }
 
@@ -342,7 +350,7 @@ function drawHelpScreen() {
   text('Commands:', help_screen_x, help_screen_y + 10);
   text('/clear - Clears the current graph', help_screen_x, help_screen_y + 70);
   text('/help - Displays this help screen', help_screen_x, help_screen_y + 100);
-  text('/generate random - Generates a random graph with random number of vertices', help_screen_x, help_screen_y + 160);
+  text('/generate random [num_verticies] - Generates a random graph with num_vertices vertices', help_screen_x, help_screen_y + 160);
   text('/generate cycle [num_vertices] - Generates a cycle graph with num_vertices vertices', help_screen_x, help_screen_y + 190);
   text('/generate complete [num_vertices] - Generates a complete graph with num_vertices vertices', help_screen_x, help_screen_y + 220);
   
@@ -585,6 +593,19 @@ function drawInfo() {
 
   // Bipartite
   text('Bipartite: ' + is_bipartite, 10, menuHeight + 120);
+
+  // Adjacency matrix
+  text('Adjacency Matrix:', 10, menuHeight + 180);
+  // print edge numbers
+  adjacencyListNumbers = [];
+  for (var i = 0; i < adjacencyList.length; i++) {
+    adjacencyListNumbers.push(i);
+  }
+  text('v: ' + adjacencyListNumbers, 10, menuHeight + 210);
+  for (var i = 0; i < adjacencyMatrix.length; i++) {
+    text(i + ': ' + adjacencyMatrix[i], 10, menuHeight + 240 + 30 * i);
+  }
+
 }
 
 function draw() {
@@ -602,7 +623,9 @@ function draw() {
   }
 
   drawAdjacencyList();
-  drawInfo();
+  if (render_info) {
+    drawInfo();
+  }
   if (show_help) {
     drawHelpScreen();
   }
@@ -763,6 +786,7 @@ function mousePressed() {
   updateVertexSelected(vertexSelectionList);
   updateEdgeSelected(edgeSelectionList);
   updateButtonColors();
+  updateAdjacencyMatrix();
   number_of_components = detectNumberOfComponents();
   is_bipartite = detectBipartite();
   detectBridges();
@@ -847,6 +871,27 @@ function updateButtonColors() {
       selectButton.style('background-color', selectedColor);
       selectButton.style('color', 'black');
       break;
+  }
+}
+
+function updateAdjacencyMatrix() {
+  // Update the adjacency matrix
+  adjacencyMatrix = [];
+  // Set size of matrix
+  for (var i = 0; i < adjacencyList.length; i++) {
+    adjacencyMatrix.push(new Array(adjacencyList.length).fill(0));
+  }
+  for (var i = 0; i < adjacencyList.length; i++) {
+    for (var j = 0; j < adjacencyList.length; j++) {
+      // get count of edges between i and j
+      count = 0;
+      for (var k = 0; k < adjacencyList[i][1].length; k++) {
+        if (adjacencyList[i][1][k] === j) {
+          count += 1;
+        }
+      }
+      adjacencyMatrix[i][j] = count;
+    }
   }
 }
 
