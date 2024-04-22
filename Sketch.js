@@ -19,6 +19,9 @@ var dragging = false;
 var render_degree = false;
 var show_help = false;
 var render_directions = false;
+var number_of_components = 0;
+var is_bipartite = false;
+var render_bridges = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -80,6 +83,7 @@ class Edge {
     this.head = head;
     this.tail = tail;
     this.selected = false;
+    this.is_bridge = false;
     this.color = null;
 
     this.middle_x = 0;
@@ -106,8 +110,8 @@ function setup() {
   placeVertexButton.mousePressed(function() {
     mode = Mode.PLACE_VERTEX;
     // clear selection list
-    while (vertexSelectionList.length > 0)
-      vertexSelectionList.pop();
+    vertexSelectionList = [];
+    edgeSelectionList = [];
   })
 
   deleteVertexButton = createButton('Delete Vertex');
@@ -117,8 +121,8 @@ function setup() {
   deleteVertexButton.mousePressed(function() {
     mode = Mode.DELETE_VERTEX;
     // clear selection list
-    while (vertexSelectionList.length > 0)
-      vertexSelectionList.pop();
+    vertexSelectionList = [];
+    edgeSelectionList = [];
   })
 
   placeEdgeButton = createButton('Place Edge');
@@ -128,8 +132,8 @@ function setup() {
   placeEdgeButton.mousePressed(function() {
     mode = Mode.PLACE_EDGE;
     // clear selection list
-    while (vertexSelectionList.length > 0)
-      vertexSelectionList.pop();
+    vertexSelectionList = [];
+    edgeSelectionList = [];
   })
 
   deleteEdgeButton = createButton('Delete Edge');
@@ -139,8 +143,8 @@ function setup() {
   deleteEdgeButton.mousePressed(function() {
     mode = Mode.DELETE_EDGE;
     // clear selection list
-    while (vertexSelectionList.length > 0)
-      vertexSelectionList.pop();
+    vertexSelectionList = [];
+    edgeSelectionList = [];
   })
 
   selectButton = createButton('Select');
@@ -150,8 +154,8 @@ function setup() {
   selectButton.mousePressed(function() {
     mode = Mode.SELECT;
     // clear selection list
-    while (vertexSelectionList.length > 0)
-      vertexSelectionList.pop();
+    vertexSelectionList = [];
+    edgeSelectionList = [];
   })
 
   renameButton = createButton('Rename');
@@ -198,6 +202,11 @@ function setup() {
     render_directions = !render_directions;
   });
 
+  renderBridgesBox = createCheckbox('Render Bridges', false);
+  renderBridgesBox.changed(function() {
+    render_bridges = !render_bridges;
+  });
+
   helpButton = createButton('Help');
   helpButton.style('background-color', buttonColor);
   helpButton.style('color', 'white');
@@ -225,6 +234,7 @@ function updateButtonPositions() {
   enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 15);
   renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
   renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
+  renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 45);
   helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
 }
 
@@ -251,6 +261,7 @@ function parseCommand(command) {
             num_parallel_edges = Math.floor(Math.random() * 3) + 1;
             for (var k = 0; k < num_parallel_edges; k++) {
               adjacencyList[i][1].push(j);
+              adjacencyList[j][1].push(i);
               edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
             }
           }
@@ -376,6 +387,31 @@ function drawEdges() {
         curve_y1 = y1 + (scale * sin(angle));
         curve_x2 = x1 + (scale * cos(angle + angle_offset));
         curve_y2 = y1 + (scale * sin(angle + angle_offset));
+
+        // Find midpoint
+        middle_x = x1 - (scale / 11) * cos(angle + angle_offset / 2);
+        middle_y = y1 - (scale / 11) * sin(angle + angle_offset / 2);
+        parallel_edges[j].middle_x = middle_x;
+        parallel_edges[j].middle_y = middle_y;
+
+        if (parallel_edges[j].selected) {
+          stroke(selectedColor);
+          fill(selectedColor);
+        }
+        else if (parallel_edges[j].color !== null){
+          stroke(parallel_edges[j].color);
+          fill(parallel_edges[j].color);
+        }
+        else {
+          stroke(edgeColor);
+          fill(edgeColor);
+        }
+        // Draw the middle point
+        strokeWeight(0);
+        circle(middle_x, middle_y, parallel_edges[j].radius);
+        // Draw the edge
+        strokeWeight(4);
+        noFill();
         curve(curve_x1, curve_y1, x1, y1, x1, y1, curve_x2, curve_y2);
       }
       else {
@@ -472,6 +508,15 @@ function drawEdges() {
           line(x1, y1, x2, y2);
         }
       }
+
+      if (render_bridges) {
+        if (parallel_edges[j].is_bridge) {
+          parallel_edges[j].color = 'red';
+        }
+        else {
+          parallel_edges[j].color = null;
+        }
+      }
     }
   }
 
@@ -534,6 +579,12 @@ function drawInfo() {
     total_degree += adjacencyList[i][1].length;
   }
   text('Total Degree: ' + total_degree, 10, menuHeight + 60);
+
+  // Number of connected components
+  text('Number of Components: ' + number_of_components, 10, menuHeight + 90);
+
+  // Bipartite
+  text('Bipartite: ' + is_bipartite, 10, menuHeight + 120);
 }
 
 function draw() {
@@ -627,7 +678,7 @@ function mousePressed() {
       if (vertexSelectionList.length === 2) {
         adjacencyList[vertexSelectionList[0]][1].push(vertexSelectionList[1]);
         adjacencyList[vertexSelectionList[0]][0].strokeColor = "black";
-        edgeList.push(new Edge(adjacencyList[vertexSelectionList[1]][0], adjacencyList[vertexSelectionList[0]][0]));
+        edgeList.push(new Edge(adjacencyList[vertexSelectionList[0]][0], adjacencyList[vertexSelectionList[1]][0]));
         if (vertexSelectionList[0] != vertexSelectionList[1]) {
           adjacencyList[vertexSelectionList[1]][1].push(vertexSelectionList[0]);
           adjacencyList[vertexSelectionList[1]][0].strokeColor = "black";
@@ -639,6 +690,7 @@ function mousePressed() {
   }
 
   else if (mode === Mode.SELECT && hit[1] > -1 && hit[0] === 0) {
+    edgeSelectionList = [];
     vertexSelectionList.push(hit[1]);
     dragging = true;
 
@@ -648,6 +700,7 @@ function mousePressed() {
   }
 
   else if (mode === Mode.SELECT && hit[1] > -1 && hit[0] === 1) {
+    vertexSelectionList = [];
     edgeSelectionList = [];
     edgeSelectionList.push(hit[1]);
   }
@@ -710,6 +763,9 @@ function mousePressed() {
   updateVertexSelected(vertexSelectionList);
   updateEdgeSelected(edgeSelectionList);
   updateButtonColors();
+  number_of_components = detectNumberOfComponents();
+  is_bipartite = detectBipartite();
+  detectBridges();
   print(adjacencyList);
   print(edgeList);
 }
@@ -791,5 +847,111 @@ function updateButtonColors() {
       selectButton.style('background-color', selectedColor);
       selectButton.style('color', 'black');
       break;
+  }
+}
+
+// Detection functions
+function detectNumberOfComponents() {
+  // Detect the number of connected components in the graph
+  // Use a depth first search to detect the number of connected components
+  visited = [];
+  for (var i = 0; i < adjacencyList.length; i++) {
+    visited.push(false);
+  }
+  num_components = 0;
+  for (var i = 0; i < adjacencyList.length; i++) {
+    if (!visited[i]) {
+      num_components += 1;
+      dfs(i, visited);
+    }
+  }
+  return num_components;
+}
+
+function dfs(vertex, visited) {
+  visited[vertex] = true;
+  for (var i = 0; i < adjacencyList[vertex][1].length; i++) {
+    if (!visited[adjacencyList[vertex][1][i]]) {
+      dfs(adjacencyList[vertex][1][i], visited);
+    }
+  }
+}
+
+function detectBipartite() {
+  // Detect if the graph is bipartite
+  // Use a depth first search to detect if the graph is bipartite
+  visited = [];
+  for (var i = 0; i < adjacencyList.length; i++) {
+    visited.push(false);
+  }
+  colors = [];
+  for (var i = 0; i < adjacencyList.length; i++) {
+    colors.push(-1);
+  }
+  for (var i = 0; i < adjacencyList.length; i++) {
+    if (!visited[i]) {
+      colors[i] = 0;
+      if (!dfsBipartite(i, visited, colors)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+function dfsBipartite(vertex, visited, colors) {
+  visited[vertex] = true;
+  for (var i = 0; i < adjacencyList[vertex][1].length; i++) {
+    if (!visited[adjacencyList[vertex][1][i]]) {
+      colors[adjacencyList[vertex][1][i]] = 1 - colors[vertex];
+      if (!dfsBipartite(adjacencyList[vertex][1][i], visited, colors)) {
+        return false;
+      }
+    }
+    else if (colors[adjacencyList[vertex][1][i]] === colors[vertex]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+
+function detectBridges() {
+  // reset bridge status of all edges
+  for (var i = 0; i < edgeList.length; i++) {
+    edgeList[i].is_bridge = false;
+  }
+  timer = 0;
+  n = adjacencyList.length;
+  visited = new Array(n).fill(false);
+  tin = new Array(n).fill(-1);
+  low = new Array(n).fill(-1);
+  for (let i = 0; i < n; ++i) {
+    if (!visited[i])
+    bridge_dfs(i);
+}
+}
+
+function bridge_dfs(v, p = -1) {
+  visited[v] = true;
+  tin[v] = low[v] = timer++;
+  adj = adjacencyList.map(x => x[1]);
+  for (let to of adj[v]) {
+    if (to === p) continue;
+    if (visited[to]) {
+      low[v] = Math.min(low[v], tin[to]);
+    } else {
+      bridge_dfs(to, v);
+      low[v] = Math.min(low[v], low[to]);
+      if (low[to] > tin[v]) {
+        // Set edge to be a bridge
+        for (let i = 0; i < edgeList.length; i++) {
+          if (edgeList[i].parents[0] === v && edgeList[i].parents[1] === to || edgeList[i].parents[0] === to && edgeList[i].parents[1] === v) {
+            edgeList[i].is_bridge = true;
+          }
+        }
+      }
+
+    }
   }
 }

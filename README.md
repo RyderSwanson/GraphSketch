@@ -15,10 +15,10 @@ Recommended features (each +2):
 
 1. ~~Information about numbers of vertices and edges~~
 2. ~~Information about degrees of vertices~~
-3. Display of directed arcs (for directed graphs)
-4. Information about components
-5. Show which edges are bridges
-6. Show whether a graph is bipartite
+3. ~~Display of directed arcs (for directed graphs)~~
+4. ~~Information about components~~
+5. ~~Show which edges are bridges~~
+6. ~~Show whether a graph is bipartite~~
 
 Additional bonus features (each +3):
  * Need 4 from this category to reach 100
