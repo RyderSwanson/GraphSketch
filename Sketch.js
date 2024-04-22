@@ -7,8 +7,10 @@ var buttonColor = '#636363';
 var selectedColor = '#E4FF1A';
 var vertexRadius = 50;
 var adjacencyList = [];
+var edgeList = [];
 var menuHeight = 70;
-var selectionList = [];
+var vertexSelectionList = [];
+var edgeSelectionList = [];
 var offsetX = 0;
 var offsetY = 0;
 var input_text = '';
@@ -72,6 +74,23 @@ class Vertex {
   }
 }
 
+class Edge {
+  constructor(head, tail) {
+    this.head = head;
+    this.tail = tail;
+    this.selected = false;
+    this.color = null;
+
+    this.middle_x = 0;
+    this.middle_y = 0;
+    this.radius = 14;
+
+    // This var is for comparisons between edges, to tell if they are parellel
+    this.parents = [this.head.i, this.tail.i];
+    this.parents.sort();
+  }
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
@@ -86,8 +105,8 @@ function setup() {
   placeVertexButton.mousePressed(function() {
     mode = Mode.PLACE_VERTEX;
     // clear selection list
-    while (selectionList.length > 0)
-      selectionList.pop();
+    while (vertexSelectionList.length > 0)
+      vertexSelectionList.pop();
   })
 
   deleteVertexButton = createButton('Delete Vertex');
@@ -97,8 +116,8 @@ function setup() {
   deleteVertexButton.mousePressed(function() {
     mode = Mode.DELETE_VERTEX;
     // clear selection list
-    while (selectionList.length > 0)
-      selectionList.pop();
+    while (vertexSelectionList.length > 0)
+      vertexSelectionList.pop();
   })
 
   placeEdgeButton = createButton('Place Edge');
@@ -108,8 +127,8 @@ function setup() {
   placeEdgeButton.mousePressed(function() {
     mode = Mode.PLACE_EDGE;
     // clear selection list
-    while (selectionList.length > 0)
-      selectionList.pop();
+    while (vertexSelectionList.length > 0)
+      vertexSelectionList.pop();
   })
 
   deleteEdgeButton = createButton('Delete Edge');
@@ -119,8 +138,8 @@ function setup() {
   deleteEdgeButton.mousePressed(function() {
     mode = Mode.DELETE_EDGE;
     // clear selection list
-    while (selectionList.length > 0)
-      selectionList.pop();
+    while (vertexSelectionList.length > 0)
+      vertexSelectionList.pop();
   })
 
   selectButton = createButton('Select');
@@ -130,8 +149,8 @@ function setup() {
   selectButton.mousePressed(function() {
     mode = Mode.SELECT;
     // clear selection list
-    while (selectionList.length > 0)
-      selectionList.pop();
+    while (vertexSelectionList.length > 0)
+      vertexSelectionList.pop();
   })
 
   renameButton = createButton('Rename');
@@ -139,7 +158,7 @@ function setup() {
   renameButton.style('color', 'white');
   renameButton.style('font-size', '20px');
   renameButton.mousePressed(function() {
-    adjacencyList[selectionList[0]][0].name = input_text;
+    adjacencyList[vertexSelectionList[0]][0].name = input_text;
     renameBox.value('');
     input_text = '';
   })
@@ -186,25 +205,6 @@ function setup() {
   updateButtonPositions();
 }
 
-function helpScreen() {
-  // Display help screen on canvas
-  var help_screen_x = windowWidth - 10;
-  var help_screen_y = 70;
-
-  fill(0);
-  stroke(0);
-  textSize(20);
-  textFont('Arial');
-  textAlign(RIGHT, TOP);
-  text('Commands:', help_screen_x, help_screen_y + 10);
-  text('/clear - Clears the current graph', help_screen_x, help_screen_y + 70);
-  text('/help - Displays this help screen', help_screen_x, help_screen_y + 100);
-  text('/generate random - Generates a random graph with random number of vertices', help_screen_x, help_screen_y + 160);
-  text('/generate cycle [num_vertices] - Generates a cycle graph with num_vertices vertices', help_screen_x, help_screen_y + 190);
-  text('/generate complete [num_vertices] - Generates a complete graph with num_vertices vertices', help_screen_x, help_screen_y + 220);
-  
-}
-
 function parseCommand(command) {
   print('test');
   command = command.split(' ');
@@ -216,7 +216,8 @@ function parseCommand(command) {
     }
     else if (command[1] == 'random') {
       adjacencyList = [];
-      num_vertices = Math.floor(Math.random() * 10) + 1;
+      edgeList = [];
+      num_vertices = command[2];
       for (var i = 0; i < num_vertices; i++) {
         x = Math.floor(Math.random() * windowWidth);
         y = Math.floor(Math.random() * windowHeight);
@@ -228,6 +229,7 @@ function parseCommand(command) {
             num_parallel_edges = Math.floor(Math.random() * 3) + 1;
             for (var k = 0; k < num_parallel_edges; k++) {
               adjacencyList[i][1].push(j);
+              edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
             }
           }
         }
@@ -235,6 +237,7 @@ function parseCommand(command) {
     }
     else if (command[1] == 'cycle') {
       adjacencyList = [];
+      edgeList = [];
       num_vertices = command[2];
       for (var i = 0; i < num_vertices; i++) {
         x = windowWidth / 2 + (min(windowWidth, windowHeight) / 2.25) * cos((2*PI) / num_vertices * i);
@@ -242,13 +245,18 @@ function parseCommand(command) {
         adjacencyList.push([new Vertex(x, y, i), []]);
         adjacencyList[i][1].push((i+1) % num_vertices);
         adjacencyList[i][1].push((i-1) % num_vertices);
+        if (i > 0) {
+          edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[(i-1) % num_vertices][0]));
+        }
       }
       // Connect the last vertex to the first
       adjacencyList[num_vertices-1][1].push(0);
       adjacencyList[0][1].push(num_vertices-1);
+      edgeList.push(new Edge(adjacencyList[num_vertices-1][0], adjacencyList[0][0]));
     }
     else if (command[1] == 'complete') {
       adjacencyList = [];
+      edgeList = [];
       num_vertices = command[2];
       for (var i = 0; i < num_vertices; i++) {
         // Generate in a circle
@@ -258,6 +266,7 @@ function parseCommand(command) {
         for (var j = 0; j < i; j++) {
           adjacencyList[i][1].push(j);
           adjacencyList[j][1].push(i);
+          edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
         }
       }
     
@@ -266,6 +275,7 @@ function parseCommand(command) {
   }
   else if (command[0] === '/clear') {
     adjacencyList = [];
+    edgeList = [];
   }
   else if (command[0] === '/help') {
     show_help = !show_help;
@@ -302,92 +312,161 @@ function drawMenu() {
   rect(0, 0, windowWidth, menuHeight);
 }
 
+function drawHelpScreen() {
+  // Display help screen on canvas
+  var help_screen_x = windowWidth - 10;
+  var help_screen_y = 70;
 
+  fill(0);
+  stroke(0);
+  textSize(20);
+  textFont('Arial');
+  textAlign(RIGHT, TOP);
+  text('Commands:', help_screen_x, help_screen_y + 10);
+  text('/clear - Clears the current graph', help_screen_x, help_screen_y + 70);
+  text('/help - Displays this help screen', help_screen_x, help_screen_y + 100);
+  text('/generate random - Generates a random graph with random number of vertices', help_screen_x, help_screen_y + 160);
+  text('/generate cycle [num_vertices] - Generates a cycle graph with num_vertices vertices', help_screen_x, help_screen_y + 190);
+  text('/generate complete [num_vertices] - Generates a complete graph with num_vertices vertices', help_screen_x, help_screen_y + 220);
+  
+}
+
+// New draw edges based on edge list
 function drawEdges() {
   fill(0);
   stroke(0);
-  // For each vertex in the adjacency list
-  for (var i = 0; i < adjacencyList.length; i++) {
-    v1 = adjacencyList[i][0];
-    e = adjacencyList[i][1];
-    x1 = v1.x;
-    y1 = v1.y
+  // Filter edge list into unique edges based on parents
+  unique_edges = edgeList.filter((x, i, a) => a.findIndex(t => t.parents[0] === x.parents[0] && t.parents[1] === x.parents[1]) === i);
+  // print('Unique Edges: ');
+  // print(unique_edges);
+  // For each unique edge, generate a list of edges that are parallel
+  for (var i = 0; i < unique_edges.length; i++) {
+    edge = unique_edges[i];
+    // Find all edges that are parallel
+    parallel_edges = edgeList.filter(x => x.parents[0] === edge.parents[0] && x.parents[1] === edge.parents[1] || x.parents[0] === edge.parents[1] && x.parents[1] === edge.parents[0]);
+    // print('Parallel Edges: ');
+    // print(parallel_edges);
+    // Draw the edges
+    for (var j = 0; j < parallel_edges.length; j++) {
+      v1 = adjacencyList[parallel_edges[j].parents[0]][0];
+      v2 = adjacencyList[parallel_edges[j].parents[1]][0];
+      x1 = v1.x;
+      y1 = v1.y;
+      x2 = v2.x;
+      y2 = v2.y;
+      // Loop?
+      if (v1 === v2) {
+        // Draw the loop
+        stroke(edgeColor);
+        strokeWeight(4);
+        noFill();
+        // Determine angle based on number of loops
+        angle = (2*PI) / (parallel_edges.length) * j;
+        min_angle = PI / 4;
+        angle_offset = (PI / 4) / (parallel_edges.length) + min_angle;
+        // Determine control points
+        scale = 1000;
+        curve_x1 = x1 + (scale * cos(angle));
+        curve_y1 = y1 + (scale * sin(angle));
+        curve_x2 = x1 + (scale * cos(angle + angle_offset));
+        curve_y2 = y1 + (scale * sin(angle + angle_offset));
+        curve(curve_x1, curve_y1, x1, y1, x1, y1, curve_x2, curve_y2);
+      }
+      else {
 
-    list_of_unique_vertices = e.filter((x, i, a) => a.indexOf(x) == i);
-    list_of_lists_of_edges = [];
-    for (var j = 0; j < list_of_unique_vertices.length; j++) {
-      list_of_lists_of_edges.push(e.filter(x => x==list_of_unique_vertices[j]));
-    }
+        // creating control points that lie on the line between the two vertices
+        scale = .2;
+        curve_x1 = ((x1 - x2) * scale) + x1;
+        curve_y1 = ((y1 - y2) * scale) + y1;
+        curve_x2 = ((x2 - x1) * scale) + x2;
+        curve_y2 = ((y2 - y1) * scale) + y2;
 
+        // Number of edges between the two vertices
+        num_edges = parallel_edges.length;
 
-    // For each list in the list of lists
-    for (var j = 0; j < list_of_lists_of_edges.length; j++) {
-      // For each edge in the list
-      for (var k = 0; k < list_of_lists_of_edges[j].length; k++) {
-        // Check if loop
-        if (list_of_unique_vertices[j] === i) {
-          // Draw the loop
-          stroke(edgeColor);
-          strokeWeight(4);
-          noFill();
-          // Determine angle based on number of loops
-          angle = (2*PI) / (list_of_lists_of_edges[j].length) * k;
-          min_angle = PI / 4;
-          angle_offset = (PI / 4) / (list_of_lists_of_edges[j].length) + min_angle;
-          // Determine control points
-          scale = 1000;
-          curve_x1 = x1 + (scale * cos(angle));
-          curve_y1 = y1 + (scale * sin(angle));
-          curve_x2 = x1 + (scale * cos(angle + angle_offset));
-          curve_y2 = y1 + (scale * sin(angle + angle_offset));
-          curve(curve_x1, curve_y1, x1, y1, x1, y1, curve_x2, curve_y2);
-        }
-        else if (list_of_unique_vertices[j] >= i) {
-          v2 = adjacencyList[list_of_unique_vertices[j]][0];
-          x2 = v2.x;
-          y2 = v2.y;
+        if (num_edges > 1) {
+          d = dist(x1, y1, x2, y2);
+          // move points perpendicular to the line
+          bend_amount = ((1 / (num_edges+1)) * (j+1)) - 0.5;
+          // 250 is the minimum bend amount
+          bend_amount *= (d / 2) + 250;
+          bend_amount *= num_edges/3;
+          curve_x1 += bend_amount * ((y2 - y1) / d);
+          curve_y1 += bend_amount * ((x1 - x2) / d);
+          curve_x2 += bend_amount * ((y2 - y1) / d);
+          curve_y2 += bend_amount * ((x1 - x2) / d);
 
-          // find slope of the line
-          m = (y2 - y1) / (x2 - x1);
+          // Draw the middle point
+          middle_x = (x1 + x2) / 2;
+          middle_y = (y1 + y2) / 2;
+          middle_x -= bend_amount * ((y2 - y1) / d) / 8; // Turns out that 8 is the magic number
+          middle_y -= bend_amount * ((x1 - x2) / d) / 8;
+          parallel_edges[j].middle_x = middle_x;
+          parallel_edges[j].middle_y = middle_y;
 
-          // creating control points that lie on the line between the two vertices
-          scale = .2;
-          curve_x1 = ((x1 - x2) * scale) + x1;
-          curve_y1 = ((y1 - y2) * scale) + y1;
-          curve_x2 = ((x2 - x1) * scale) + x2;
-          curve_y2 = ((y2 - y1) * scale) + y2;
-
-          // Number of edges between the two vertices
-          num_edges = list_of_lists_of_edges[j].length;
-
-          if (num_edges > 1) {
-            d = dist(x1, y1, x2, y2);
-            // move points perpendicular to the line
-            bend_amount = ((1 / (num_edges+1)) * (k+1)) - 0.5;
-            // 250 is the minimum bend amount
-            bend_amount *= (d / 2) + 250;
-            bend_amount *= num_edges/3;
-            curve_x1 += bend_amount * ((y2 - y1) / d);
-            curve_y1 += bend_amount * ((x1 - x2) / d);
-            curve_x2 += bend_amount * ((y2 - y1) / d);
-            curve_y2 += bend_amount * ((x1 - x2) / d);
-            // Draw the edge
-            stroke(edgeColor);
-            strokeWeight(4);
-            noFill();
-            curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
+          // draw middle point
+          if (parallel_edges[j].selected) {
+            stroke(selectedColor);
+            strokeWeight(0);
+            fill(selectedColor);
+            parallel_edges[j].color = selectedColor;
           }
           else {
-            // Draw the edge
             stroke(edgeColor);
-            strokeWeight(4);
-            noFill();
-            curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
+            strokeWeight(0);
+            fill(edgeColor);
+            parallel_edges[j].color = null;
           }
+          circle(middle_x, middle_y, parallel_edges[j].radius);
+
+          // Draw the edge
+          if (parallel_edges[j].color !== null){
+            stroke(parallel_edges[j].color);
+          }
+          else {
+            stroke(edgeColor);
+          }
+          strokeWeight(4);
+          noFill();
+          curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
+        }
+        else {
+          // Draw the middle point
+          middle_x = (x1 + x2) / 2;
+          middle_y = (y1 + y2) / 2;
+          parallel_edges[j].middle_x = middle_x;
+          parallel_edges[j].middle_y = middle_y;
+
+          // draw middle point
+          if (parallel_edges[j].selected) {
+            stroke(selectedColor);
+            strokeWeight(0);
+            fill(selectedColor);
+            parallel_edges[j].color = selectedColor;
+          }
+          else {
+            stroke(edgeColor);
+            strokeWeight(0);
+            fill(edgeColor);
+            parallel_edges[j].color = null;
+          }
+          circle(middle_x, middle_y, parallel_edges[j].radius);
+
+          // Draw the edge
+          if (parallel_edges[j].color !== null){
+            stroke(parallel_edges[j].color);
+          }
+          else {
+            stroke(edgeColor);
+          }
+          strokeWeight(4);
+          noFill();
+          line(x1, y1, x2, y2);
         }
       }
     }
   }
+
 }
 
 function drawAdjacencyList() {
@@ -429,10 +508,10 @@ function draw() {
   background(backgroundColor);
   drawMenu();
 
-  if (mouseIsPressed === true && selectionList.length > 0 && mode === Mode.SELECT && dragging) {
+  if (mouseIsPressed === true && vertexSelectionList.length > 0 && mode === Mode.SELECT && dragging) {
     // accounting for offset
-    adjacencyList[selectionList[0]][0].x = mouseX - offsetX; 
-    adjacencyList[selectionList[0]][0].y = mouseY - offsetY; 
+    adjacencyList[vertexSelectionList[0]][0].x = mouseX - offsetX; 
+    adjacencyList[vertexSelectionList[0]][0].y = mouseY - offsetY; 
   }
 
   if (mouseIsPressed === false && mode === Mode.SELECT) {
@@ -442,7 +521,7 @@ function draw() {
   drawAdjacencyList();
   drawInfo();
   if (show_help) {
-    helpScreen();
+    drawHelpScreen();
   }
 }
 
@@ -472,12 +551,38 @@ function vertexHit() {
   return hit;
 }
 
+function edgeHit() {
+  hit = -1;
+  for (var i = 0; i < edgeList.length; i++) {
+    e = edgeList[i];
+    if (mouseHitTest(e.middle_x - e.radius / 2, e.middle_y - e.radius / 2, e.middle_x + e.radius / 2, e.middle_y + e.radius / 2)) {
+      hit = i;
+      break;
+    }
+  }
+  return hit;
+}
+
+function hitTest() {
+  // This function returns a tuple of the type of hit and the index of the hit
+  // [0, index] is a vertex hit
+  // [1, index] is an edge hit
+  type = -1;
+  hit = vertexHit();
+  type = 0;
+  if (hit === -1) {
+    hit = edgeHit();
+    type = 1;
+  }
+  return [type, hit];
+}
+
 // test each vertex for a hit
 // can be made faster with dictionary if too slow
 // if no hit place a new vertex
 // if hit try to connect two vertices with edge
 function mousePressed() {
-  hit = vertexHit();
+  hit = hitTest();
 
   if (mode === Mode.PLACE_VERTEX) {
     if (mouseY > menuHeight + vertexRadius / 2)
@@ -485,78 +590,100 @@ function mousePressed() {
   }
 
   else if (mode === Mode.PLACE_EDGE) {
-    if (hit != -1) {
-      selectionList.push(hit);
-      adjacencyList[hit][0].strokeColor = "blue";
-      if (selectionList.length === 2) {
-        adjacencyList[selectionList[0]][1].push(selectionList[1]);
-        adjacencyList[selectionList[0]][0].strokeColor = "black";
-        if (selectionList[0] != selectionList[1]) {
-          adjacencyList[selectionList[1]][1].push(selectionList[0]);
-          adjacencyList[selectionList[1]][0].strokeColor = "black";
+    if (hit[1] != -1 && hit[0] === 0) {
+      vertexSelectionList.push(hit[1]);
+      if (vertexSelectionList.length === 2) {
+        adjacencyList[vertexSelectionList[0]][1].push(vertexSelectionList[1]);
+        adjacencyList[vertexSelectionList[0]][0].strokeColor = "black";
+        edgeList.push(new Edge(adjacencyList[vertexSelectionList[0]][0], adjacencyList[vertexSelectionList[1]][0]));
+        if (vertexSelectionList[0] != vertexSelectionList[1]) {
+          adjacencyList[vertexSelectionList[1]][1].push(vertexSelectionList[0]);
+          adjacencyList[vertexSelectionList[1]][0].strokeColor = "black";
         }
-        while (selectionList.length > 0)
-          selectionList.pop();
+        while (vertexSelectionList.length > 0)
+          vertexSelectionList.pop();
       }
     }
   }
 
-  else if (mode === Mode.SELECT && hit > -1) {
-    selectionList.push(hit);
+  else if (mode === Mode.SELECT && hit[1] > -1 && hit[0] === 0) {
+    vertexSelectionList.push(hit[1]);
     dragging = true;
 
     // Save offset from hit vertex to mouse
-    offsetX = mouseX - adjacencyList[hit][0].x;
-    offsetY = mouseY - adjacencyList[hit][0].y;    
+    offsetX = mouseX - adjacencyList[hit[1]][0].x;
+    offsetY = mouseY - adjacencyList[hit[1]][0].y;    
+  }
+
+  else if (mode === Mode.SELECT && hit[1] > -1 && hit[0] === 1) {
+    edgeSelectionList = [];
+    edgeSelectionList.push(hit[1]);
   }
 
   else if (mode === Mode.DELETE_VERTEX) {
-    if (hit !== -1) {
-      adjacencyList.splice(hit, 1);
+    if (hit[1] !== -1 && hit[0] === 0) {
+      adjacencyList.splice(hit[1], 1);
       for (var i = 0; i < adjacencyList.length; i++) {
-        if (adjacencyList[i][1].includes(hit)) {
-          adjacencyList[i][1] = adjacencyList[i][1].filter(x => x !== hit);
+        if (adjacencyList[i][1].includes(hit[1])) {
+          adjacencyList[i][1] = adjacencyList[i][1].filter(x => x !== hit[1]);
         }
       }
-      updateVertexIndices();
+      for (var i = 0; i < edgeList.length; i++) {
+        if (edgeList[i].parents[0] === hit[1] || edgeList[i].parents[1] === hit[1]) {
+          edgeList.splice(i, 1);
+          i -= 1;
+        }
+      }
+      updateVertexIndices(hit[1]);
     }
   }
 
   else if (mode === Mode.DELETE_EDGE) {
-    if (hit !== -1) {
-      selectionList.push(hit);
-      if (selectionList.length === 2) {
+    if (hit[1] !== -1 && hit[0] === 1) {
+      vertexSelectionList.push(hit[1]);
+      if (vertexSelectionList.length === 2) {
+        // Adjacency list
         // catch loops
-        if (selectionList[0] !== selectionList[1]) {
-          for (var i = 0; i < adjacencyList[selectionList[0]][1].length; i++) {
-            if (adjacencyList[selectionList[0]][1][i] === selectionList[1]) {
-              adjacencyList[selectionList[0]][1].splice(i, 1);
+        if (vertexSelectionList[0] !== vertexSelectionList[1]) {
+          for (var i = 0; i < adjacencyList[vertexSelectionList[0]][1].length; i++) {
+            if (adjacencyList[vertexSelectionList[0]][1][i] === vertexSelectionList[1]) {
+              adjacencyList[vertexSelectionList[0]][1].splice(i, 1);
               break;
             }
           }
         }
-        for (var i = 0; i < adjacencyList[selectionList[1]][1].length; i++) {
-          if (adjacencyList[selectionList[1]][1][i] === selectionList[0]) {
-            adjacencyList[selectionList[1]][1].splice(i, 1);
+        for (var i = 0; i < adjacencyList[vertexSelectionList[1]][1].length; i++) {
+          if (adjacencyList[vertexSelectionList[1]][1][i] === vertexSelectionList[0]) {
+            adjacencyList[vertexSelectionList[1]][1].splice(i, 1);
             break;
           }
         }
-        while (selectionList.length > 0)
-          selectionList.pop();
+        // Edge list
+        for (var i = 0; i < edgeList.length; i++) {
+          if (edgeList[i].parents[0] === vertexSelectionList[0] && edgeList[i].parents[1] === vertexSelectionList[1] || edgeList[i].parents[0] === vertexSelectionList[1] && edgeList[i].parents[1] === vertexSelectionList[0]) {
+            edgeList.splice(i, 1);
+            break;
+          }
+        }
+
+        while (vertexSelectionList.length > 0)
+          vertexSelectionList.pop();
       }
     }
   }
 
   // reduce selection list to 1 if it is greater than 1
-  if (selectionList.length > 1) {
-    selectionList.shift();
+  if (vertexSelectionList.length > 1) {
+    vertexSelectionList.shift();
   }
-  updateVertexSelected(selectionList);
+  updateVertexSelected(vertexSelectionList);
+  updateEdgeSelected(edgeSelectionList);
   updateButtonColors();
   print(adjacencyList);
+  print(edgeList);
 }
 
-function updateVertexIndices() {
+function updateVertexIndices(vertex_deleted) {
   for (var i = 0; i < adjacencyList.length; i++) {
     if (adjacencyList[i][0].i !== i) {
       for (var j = 0; j < adjacencyList.length; j++) {
@@ -569,6 +696,14 @@ function updateVertexIndices() {
       adjacencyList[i][0].i = i;
     }
   }
+  for (var i = 0; i < edgeList.length; i++) {
+    if (edgeList[i].parents[0] >= vertex_deleted) {
+      edgeList[i].parents[0] -= 1;
+    }
+    if (edgeList[i].parents[1] >= vertex_deleted) {
+      edgeList[i].parents[1] -= 1;
+    }
+  }
 }
 
 function updateVertexSelected(selectionList) {
@@ -579,6 +714,17 @@ function updateVertexSelected(selectionList) {
   // set selected vertices to selected
   for (var i = 0; i < selectionList.length; i++) {
     adjacencyList[selectionList[i]][0].selected = true;
+  }
+}
+
+function updateEdgeSelected(selectionList) {
+  // set all edges to unselected
+  for (var i = 0; i < edgeList.length; i++) {
+    edgeList[i].selected = false;
+  }
+  // set selected edges to selected
+  for (var i = 0; i < selectionList.length; i++) {
+    edgeList[selectionList[i]].selected = true;
   }
 }
 
