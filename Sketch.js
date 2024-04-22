@@ -18,6 +18,7 @@ var enter_command = '';
 var dragging = false;
 var render_degree = false;
 var show_help = false;
+var render_directions = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -192,6 +193,11 @@ function setup() {
     render_degree = !render_degree;
   });
 
+  renderDirectionsBox = createCheckbox('Render Directions', false);
+  renderDirectionsBox.changed(function() {
+    render_directions = !render_directions;
+  });
+
   helpButton = createButton('Help');
   helpButton.style('background-color', buttonColor);
   helpButton.style('color', 'white');
@@ -205,8 +211,24 @@ function setup() {
   updateButtonPositions();
 }
 
+function updateButtonPositions() {
+  button_x_offset = ((windowWidth / 8) / 4);
+  button_grid_unit = windowWidth / 11;
+  placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
+  deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
+  placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
+  deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
+  selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
+  renameButton.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
+  renameBox.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
+  enterCommandButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 15);
+  enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 15);
+  renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
+  renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
+  helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
+}
+
 function parseCommand(command) {
-  print('test');
   command = command.split(' ');
   if (command[0] === '/generate') {
     // check second argument
@@ -219,8 +241,8 @@ function parseCommand(command) {
       edgeList = [];
       num_vertices = command[2];
       for (var i = 0; i < num_vertices; i++) {
-        x = Math.floor(Math.random() * windowWidth);
-        y = Math.floor(Math.random() * windowHeight);
+        x = Math.floor(Math.random() * windowWidth * 0.8 + windowWidth * 0.1);
+        y = Math.floor(Math.random() * windowHeight * 0.8 + windowHeight * 0.1);
         adjacencyList.push([new Vertex(x, y, i), []]);
       }
       for (var i = 0; i < num_vertices; i++) {
@@ -288,22 +310,6 @@ function windowResized() {
 
   // update button positions
   updateButtonPositions();
-}
-
-function updateButtonPositions() {
-  button_x_offset = ((windowWidth / 8) / 4);
-  button_grid_unit = windowWidth / 11;
-  placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
-  deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
-  placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
-  deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
-  selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
-  renameButton.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
-  renameBox.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
-  enterCommandButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 15);
-  enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 15);
-  renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
-  helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
 }
 
 function drawMenu() {
@@ -404,29 +410,30 @@ function drawEdges() {
           parallel_edges[j].middle_x = middle_x;
           parallel_edges[j].middle_y = middle_y;
 
-          // draw middle point
           if (parallel_edges[j].selected) {
             stroke(selectedColor);
-            strokeWeight(0);
             fill(selectedColor);
-            parallel_edges[j].color = selectedColor;
           }
-          else {
-            stroke(edgeColor);
-            strokeWeight(0);
-            fill(edgeColor);
-            parallel_edges[j].color = null;
-          }
-          circle(middle_x, middle_y, parallel_edges[j].radius);
-
-          // Draw the edge
-          if (parallel_edges[j].color !== null){
+          else if (parallel_edges[j].color !== null){
             stroke(parallel_edges[j].color);
+            fill(parallel_edges[j].color);
           }
           else {
             stroke(edgeColor);
+            fill(edgeColor);
           }
+          
+          // draw middle point
           strokeWeight(4);
+          if (render_directions) {
+            drawArrow(parallel_edges[j]);
+          }
+          else {
+            strokeWeight(0);
+            circle(middle_x, middle_y, parallel_edges[j].radius);
+            strokeWeight(4);
+          }
+          // Draw the edge
           noFill();
           curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
         }
@@ -437,29 +444,30 @@ function drawEdges() {
           parallel_edges[j].middle_x = middle_x;
           parallel_edges[j].middle_y = middle_y;
 
-          // draw middle point
           if (parallel_edges[j].selected) {
             stroke(selectedColor);
-            strokeWeight(0);
             fill(selectedColor);
-            parallel_edges[j].color = selectedColor;
           }
-          else {
-            stroke(edgeColor);
-            strokeWeight(0);
-            fill(edgeColor);
-            parallel_edges[j].color = null;
-          }
-          circle(middle_x, middle_y, parallel_edges[j].radius);
-
-          // Draw the edge
-          if (parallel_edges[j].color !== null){
+          else if (parallel_edges[j].color !== null){
             stroke(parallel_edges[j].color);
+            fill(parallel_edges[j].color);
           }
           else {
             stroke(edgeColor);
+            fill(edgeColor);
           }
+          
+          // draw middle point
           strokeWeight(4);
+          if (render_directions) {
+            drawArrow(parallel_edges[j]);
+          }
+          else {
+            strokeWeight(0);
+            circle(middle_x, middle_y, parallel_edges[j].radius);
+            strokeWeight(4);
+          }
+          // Draw the edge
           noFill();
           line(x1, y1, x2, y2);
         }
@@ -467,6 +475,30 @@ function drawEdges() {
     }
   }
 
+}
+
+function drawArrow(edge) {
+  x = edge.middle_x;
+  y = edge.middle_y;
+  head = edge.head;
+  tail = edge.tail;
+  // Draw an arrow at x1, y1 pointing towards head
+  // Angle of the arrow
+  angle = atan2(head.y - tail.y, head.x - tail.x);
+  // Length of the arrow
+  size = 5;
+  // Draw the arrow
+  push();
+  translate(x, y);
+  rotate(angle);
+  // fill(edge.color);
+  // stroke(edge.color);
+  // strokeWeight(4); 
+
+  line(0, 0, size, -size);
+  line(0, 0, size, size);
+
+  pop();
 }
 
 function drawAdjacencyList() {
@@ -595,7 +627,7 @@ function mousePressed() {
       if (vertexSelectionList.length === 2) {
         adjacencyList[vertexSelectionList[0]][1].push(vertexSelectionList[1]);
         adjacencyList[vertexSelectionList[0]][0].strokeColor = "black";
-        edgeList.push(new Edge(adjacencyList[vertexSelectionList[0]][0], adjacencyList[vertexSelectionList[1]][0]));
+        edgeList.push(new Edge(adjacencyList[vertexSelectionList[1]][0], adjacencyList[vertexSelectionList[0]][0]));
         if (vertexSelectionList[0] != vertexSelectionList[1]) {
           adjacencyList[vertexSelectionList[1]][1].push(vertexSelectionList[0]);
           adjacencyList[vertexSelectionList[1]][0].strokeColor = "black";
@@ -640,35 +672,34 @@ function mousePressed() {
 
   else if (mode === Mode.DELETE_EDGE) {
     if (hit[1] !== -1 && hit[0] === 1) {
-      vertexSelectionList.push(hit[1]);
-      if (vertexSelectionList.length === 2) {
-        // Adjacency list
-        // catch loops
-        if (vertexSelectionList[0] !== vertexSelectionList[1]) {
-          for (var i = 0; i < adjacencyList[vertexSelectionList[0]][1].length; i++) {
-            if (adjacencyList[vertexSelectionList[0]][1][i] === vertexSelectionList[1]) {
-              adjacencyList[vertexSelectionList[0]][1].splice(i, 1);
-              break;
-            }
-          }
-        }
-        for (var i = 0; i < adjacencyList[vertexSelectionList[1]][1].length; i++) {
-          if (adjacencyList[vertexSelectionList[1]][1][i] === vertexSelectionList[0]) {
-            adjacencyList[vertexSelectionList[1]][1].splice(i, 1);
+      v1 = edgeList[hit[1]].parents[0];
+      v2 = edgeList[hit[1]].parents[1];
+      // Adjacency list
+      // catch loops
+      if (v1 !== v2) {
+        for (var i = 0; i < adjacencyList[v1][1].length; i++) {
+          if (adjacencyList[v1][1][i] === v2) {
+            adjacencyList[v1][1].splice(i, 1);
             break;
           }
         }
-        // Edge list
-        for (var i = 0; i < edgeList.length; i++) {
-          if (edgeList[i].parents[0] === vertexSelectionList[0] && edgeList[i].parents[1] === vertexSelectionList[1] || edgeList[i].parents[0] === vertexSelectionList[1] && edgeList[i].parents[1] === vertexSelectionList[0]) {
-            edgeList.splice(i, 1);
-            break;
-          }
-        }
-
-        while (vertexSelectionList.length > 0)
-          vertexSelectionList.pop();
       }
+      for (var i = 0; i < adjacencyList[v2][1].length; i++) {
+        if (adjacencyList[v2][1][i] === v1) {
+          adjacencyList[v2][1].splice(i, 1);
+          break;
+        }
+      }
+      // Edge list
+      for (var i = 0; i < edgeList.length; i++) {
+        if (edgeList[i].parents[0] === v1 && edgeList[i].parents[1] === v2 || edgeList[i].parents[0] === v2 && edgeList[i].parents[1] === v1) {
+          edgeList.splice(i, 1);
+          break;
+        }
+      }
+
+      while (vertexSelectionList.length > 0)
+        vertexSelectionList.pop(); 
     }
   }
 
