@@ -263,8 +263,8 @@ function updateButtonPositions() {
   renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
   renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2);
   renderInfoBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
-  repelBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 30);
-  gravityBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 45);
+  repelBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 30);
+  gravityBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
   renameButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 + 5);
   renameBox.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 30);
   enterCommandButton.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 + 5);
@@ -849,7 +849,7 @@ function drawInfo() {
 
 
   // Chromatic number
-  text('Chromatic Number: ' + chromatic_number, 10, menuHeight + 240 + 30 * adjacencyMatrix.length);
+  text('Chromatic Number: ' + chromatic_number, 10, menuHeight + 270 + 30 * adjacencyMatrix.length);
 
 }
 
@@ -877,6 +877,7 @@ function draw() {
 }
 
 function keyPressed() {
+  updateInfo();
   if (keyCode === ENTER && current_text_box === 'rename') {
     adjacencyList[vertexSelectionList[0]][0].name = input_text;
     renameBox.value('');
@@ -887,15 +888,60 @@ function keyPressed() {
     enterCommandBox.value('');
     enter_command = '';
   }
-  print (keyCode);
-  print (mode);
-  print(Mode.DELETE_VERTEX);
   if (keyCode === DELETE && mode === Mode.SELECT && vertexSelectionList.length > 0) {
     print('Delete Vertex');
     deleteVertex(vertexSelectionList[0]);
   }
   if (keyCode === DELETE && mode === Mode.SELECT && edgeSelectionList.length > 0) {
     deleteEdge(edgeSelectionList[0]);
+  }
+  if (keyCode === 32) {
+    // Space bar
+    mode = (mode + 1) % 5;
+    updateButtonColors();
+  }
+  // 'c' key
+  if (keyCode === 67) {
+    // Clear graph
+    adjacencyList = [];
+    edgeList = [];
+  }
+  // 'r' key
+  if (keyCode === 82) {
+    // Random graph
+    adjacencyList = [];
+    edgeList = [];
+    num_vertices = 10;
+    for (var i = 0; i < num_vertices; i++) {
+      x = Math.floor(Math.random() * windowWidth * 0.8 + windowWidth * 0.1);
+      y = Math.floor(Math.random() * windowHeight * 0.8 + windowHeight * 0.1);
+      adjacencyList.push([new Vertex(x, y, i), []]);
+    }
+    for (var i = 0; i < num_vertices; i++) {
+      for (var j = 0; j < num_vertices; j++) {
+        if (Math.random() < 0.2 && i !== j) {
+          // Generate a random number that is most of the time 1
+          if (Math.random() < 0.5) {
+            num_parallel_edges = 1;
+          }
+          else if (Math.random() < 0.75) {
+            num_parallel_edges = 0;
+          }
+          else {
+            num_parallel_edges = Math.floor(Math.random() * 3) + 1;
+          }
+          for (var k = 0; k < num_parallel_edges; k++) {
+            adjacencyList[i][1].push(j);
+            adjacencyList[j][1].push(i);
+            edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
+          }
+        }
+      }
+    }
+  }
+  // 'h' key
+  if (keyCode === 72) {
+    show_help = !show_help;
   }
 }
 
@@ -1012,6 +1058,12 @@ function mousePressed() {
   if (vertexSelectionList.length > 1) {
     vertexSelectionList.shift();
   }
+  updateInfo();
+  print(adjacencyList);
+  print(edgeList);
+}
+
+function updateInfo() {
   updateVertexSelected(vertexSelectionList);
   updateEdgeSelected(edgeSelectionList);
   updateButtonColors();
@@ -1020,8 +1072,7 @@ function mousePressed() {
   is_bipartite = detectBipartite();
   chromatic_number = calculateChromaticNumber();
   detectBridges();
-  print(adjacencyList);
-  print(edgeList);
+  eigenvalue = calculateEigenvalues();
 }
 
 function deleteVertex(vertex) {
@@ -1314,10 +1365,51 @@ function calculateEigenvalues() {
   v = new Array(n).fill(1);
   for (var i = 0; i < 100; i++) {
     v = matrixVectorMultiply(adjacencyMatrix, v);
-    v = scalarVectorMultiply(1 / norm(v), v);
+    v = scalarVectorMultiply(1 / normalize(v), v);
   }
   return dot(v, matrixVectorMultiply(adjacencyMatrix, v)) / dot(v, v);
 }
+
+function normalize(v) {
+  // Normalize a vector
+  sum = 0;
+  for (var i = 0; i < v.length; i++) {
+    sum += v[i] * v[i];
+  }
+  return Math.sqrt(sum);
+}
+
+function matrixVectorMultiply(matrix, vector) {
+  // Multiply a matrix by a vector
+  result = [];
+  for (var i = 0; i < matrix.length; i++) {
+    sum = 0;
+    for (var j = 0; j < matrix.length; j++) {
+      sum += matrix[i][j] * vector[j];
+    }
+    result.push(sum);
+  }
+  return result;
+}
+
+function scalarVectorMultiply(scalar, vector) {
+  // Multiply a vector by a scalar
+  result = [];
+  for (var i = 0; i < vector.length; i++) {
+    result.push(scalar * vector[i]);
+  }
+  return result;
+}
+
+function dot(v1, v2) {
+  // Calculate the dot product of two vectors
+  result = 0;
+  for (var i = 0; i < v1.length; i++) {
+    result += v1[i] * v2[i];
+  }
+  return result;
+}
+
 
 
 // Simulation stuff
@@ -1336,16 +1428,16 @@ function calculateForce(vertex) {
 
   // If out of bounds, add a force to move the vertex back into bounds
   if (adjacencyList[vertex][0].x < 0) {
-    force[0] += adjacencyList[vertex][0].x;
+    force[0] -= adjacencyList[vertex][0].x;
   }
   if (adjacencyList[vertex][0].x > windowWidth) {
     force[0] += windowWidth - adjacencyList[vertex][0].x;
   }
-  if (adjacencyList[vertex][0].y < menuHeight) {
-    force[1] += adjacencyList[vertex][0].y - menuHeight;
-  }
   if (adjacencyList[vertex][0].y > windowHeight) {
     force[1] += windowHeight - adjacencyList[vertex][0].y;
+  }
+  if (adjacencyList[vertex][0].y < menuHeight) {
+    force[1] += menuHeight - adjacencyList[vertex][0].y;
   }
 
   return force;
@@ -1363,28 +1455,35 @@ function calculateForceBetweenVertices(v1, v2) {
   d = dist(x1, y1, x2, y2);
   f = [0, 0];
   if (adjacencyList[v1][1].includes(v2)) {
-    f[0] = (x2 - x1) / d;
-    f[1] = (y2 - y1) / d;
+    // f[0] = (x2 - x1) / d;
+    // f[1] = (y2 - y1) / d;
     // Add a spring force to the force
-    spring_constant = 0.31;
+    spring_constant = 0.21;
     spring_length = 500;
     d = dist(x1, y1, x2, y2);
     f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
     f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
+    // dampen
+    f[0] *= 0.1;
+    f[1] *= 0.1;
   }
   else {
-    f[0] = -(x2 - x1) / d;
-    f[1] = -(y2 - y1) / d;
+    // f[0] = -(x2 - x1) / d;
+    // f[1] = -(y2 - y1) / d;
     // Add a spring force to the force
-    spring_constant = 0.31;
+    spring_constant = 0.001;
     spring_length = 700;
     d = dist(x1, y1, x2, y2);
-    f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
+    f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;  
     f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
+
+    // dampen
+    f[0] *= 0.1;
+    f[1] *= 0.1;
   }
 
   // scale force
-  force_constant = 0.01;
+  force_constant = 0.05;
   f[0] *= force_constant;
   f[1] *= force_constant;
 
@@ -1396,18 +1495,33 @@ function calculateForceBetweenVertices(v1, v2) {
 function stepRepelVerticies() {
   // Update the positions of the vertices based on the forces
   for (var i = 0; i < adjacencyList.length; i++) {
+    max_vel = 50;
     f = calculateForce(i);
     adjacencyList[i][0].dx += f[0];
     adjacencyList[i][0].dy += f[1];
 
-    if (gravity) {
+    if (gravity && adjacencyList[i][0].selected === false) {
       // Add a force to pull the vertex down
-      adjacencyList[i][0].dy += 0.1;
+      adjacencyList[i][0].dy += 0.05;
     }
 
     // Air resistance
     adjacencyList[i][0].dx *= 0.99;
     adjacencyList[i][0].dy *= 0.99;
+
+    // Limit the velocity of the vertex
+    if (adjacencyList[i][0].dx > max_vel) {
+      adjacencyList[i][0].dx = max_vel;
+    }
+    if (adjacencyList[i][0].dx < -max_vel) {
+      adjacencyList[i][0].dx = -max_vel;
+    }
+    if (adjacencyList[i][0].dy > max_vel) {
+      adjacencyList[i][0].dy = max_vel;
+    }
+    if (adjacencyList[i][0].dy < -max_vel) {
+      adjacencyList[i][0].dy = -max_vel;
+    }
 
     // Update the position of the vertex
     adjacencyList[i][0].x += adjacencyList[i][0].dx;
