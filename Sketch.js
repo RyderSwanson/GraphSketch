@@ -895,11 +895,6 @@ function keyPressed() {
   if (keyCode === DELETE && mode === Mode.SELECT && edgeSelectionList.length > 0) {
     deleteEdge(edgeSelectionList[0]);
   }
-  if (keyCode === 32) {
-    // Space bar
-    mode = (mode + 1) % 5;
-    updateButtonColors();
-  }
   // 'c' key
   if (keyCode === 67) {
     // Clear graph
