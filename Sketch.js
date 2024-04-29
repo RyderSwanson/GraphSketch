@@ -889,54 +889,55 @@ function keyPressed() {
     enter_command = '';
   }
   if (keyCode === DELETE && mode === Mode.SELECT && vertexSelectionList.length > 0) {
-    print('Delete Vertex');
     deleteVertex(vertexSelectionList[0]);
   }
   if (keyCode === DELETE && mode === Mode.SELECT && edgeSelectionList.length > 0) {
     deleteEdge(edgeSelectionList[0]);
   }
-  // 'c' key
-  if (keyCode === 67) {
-    // Clear graph
-    adjacencyList = [];
-    edgeList = [];
-  }
-  // 'r' key
-  if (keyCode === 82) {
-    // Random graph
-    adjacencyList = [];
-    edgeList = [];
-    num_vertices = 10;
-    for (var i = 0; i < num_vertices; i++) {
-      x = Math.floor(Math.random() * windowWidth * 0.8 + windowWidth * 0.1);
-      y = Math.floor(Math.random() * windowHeight * 0.8 + windowHeight * 0.1);
-      adjacencyList.push([new Vertex(x, y, i), []]);
+  if (enter_command === '' && current_text_box === '') {
+    // 'c' key
+    if (keyCode === 67) {
+      // Clear graph
+      adjacencyList = [];
+      edgeList = [];
     }
-    for (var i = 0; i < num_vertices; i++) {
-      for (var j = 0; j < num_vertices; j++) {
-        if (Math.random() < 0.2 && i !== j) {
-          // Generate a random number that is most of the time 1
-          if (Math.random() < 0.5) {
-            num_parallel_edges = 1;
-          }
-          else if (Math.random() < 0.75) {
-            num_parallel_edges = 0;
-          }
-          else {
-            num_parallel_edges = Math.floor(Math.random() * 3) + 1;
-          }
-          for (var k = 0; k < num_parallel_edges; k++) {
-            adjacencyList[i][1].push(j);
-            adjacencyList[j][1].push(i);
-            edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
+    // 'r' key
+    if (keyCode === 82) {
+      // Random graph
+      adjacencyList = [];
+      edgeList = [];
+      num_vertices = 10;
+      for (var i = 0; i < num_vertices; i++) {
+        x = Math.floor(Math.random() * windowWidth * 0.8 + windowWidth * 0.1);
+        y = Math.floor(Math.random() * windowHeight * 0.8 + windowHeight * 0.1);
+        adjacencyList.push([new Vertex(x, y, i), []]);
+      }
+      for (var i = 0; i < num_vertices; i++) {
+        for (var j = 0; j < num_vertices; j++) {
+          if (Math.random() < 0.2 && i !== j) {
+            // Generate a random number that is most of the time 1
+            if (Math.random() < 0.5) {
+              num_parallel_edges = 1;
+            }
+            else if (Math.random() < 0.75) {
+              num_parallel_edges = 0;
+            }
+            else {
+              num_parallel_edges = Math.floor(Math.random() * 3) + 1;
+            }
+            for (var k = 0; k < num_parallel_edges; k++) {
+              adjacencyList[i][1].push(j);
+              adjacencyList[j][1].push(i);
+              edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
+            }
           }
         }
       }
     }
-  }
-  // 'h' key
-  if (keyCode === 72) {
-    show_help = !show_help;
+    // 'h' key
+    if (keyCode === 72) {
+      show_help = !show_help;
+    }
   }
 }
 
@@ -1422,17 +1423,17 @@ function calculateForce(vertex) {
   }
 
   // If out of bounds, add a force to move the vertex back into bounds
-  if (adjacencyList[vertex][0].x < 0) {
-    force[0] -= adjacencyList[vertex][0].x;
+  if (adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2) < 0) {
+    force[0] -= adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2);
   }
-  if (adjacencyList[vertex][0].x > windowWidth) {
-    force[0] += windowWidth - adjacencyList[vertex][0].x;
+  if (adjacencyList[vertex][0].x + (adjacencyList[vertex][0].radius/2) > windowWidth) {
+    force[0] += windowWidth - adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2);
   }
-  if (adjacencyList[vertex][0].y > windowHeight) {
-    force[1] += windowHeight - adjacencyList[vertex][0].y;
+  if (adjacencyList[vertex][0].y + (adjacencyList[vertex][0].radius/2) > windowHeight) {
+    force[1] += windowHeight - adjacencyList[vertex][0].y - (adjacencyList[vertex][0].radius/2);
   }
-  if (adjacencyList[vertex][0].y < menuHeight) {
-    force[1] += menuHeight - adjacencyList[vertex][0].y;
+  if (adjacencyList[vertex][0].y - (adjacencyList[vertex][0].radius/2) < menuHeight) {
+    force[1] += menuHeight - adjacencyList[vertex][0].y + (adjacencyList[vertex][0].radius/2);
   }
 
   return force;

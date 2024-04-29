@@ -1,35 +1,26 @@
 # GraphSketch
 
-Required functionality (to guarantee an 75% score; each missing is -3)
-for “Graph Theorist’s Sketchpad” apps:
-1. ~~Graphical display of vertices and edges~~
-2. ~~Input of vertices and edges~~
-3. ~~Able to reposition vertices while maintaining adjacencies~~
-4. ~~Deletion of vertices and edges~~
-5. ~~Parallel edges~~
-6. ~~Loops~~
-7. ~~Ability to color or label vertices~~
+This repository contains the code for GraphSketch, a website for sketching and visualizing graphs.
 
-Recommended features (each +2):
- * Need all from this category to reach 87 points
+## Usage
 
-1. ~~Information about numbers of vertices and edges~~
-2. ~~Information about degrees of vertices~~
-3. ~~Display of directed arcs (for directed graphs)~~
-4. ~~Information about components~~
-5. ~~Show which edges are bridges~~
-6. ~~Show whether a graph is bipartite~~
+The menu bar has a few modes to select from:
 
-Additional bonus features (each +3):
- * Need 4 from this category to reach 100
- 
-1. ~~Adjacency matrix and/or Laplacian matrix info~~
-2. Eigenvalues, eigenvectors for #1
-3. ~~Quick Cartesian product constructions (e.g. 𝐺×𝐾2 for any 𝐺)~~ (working for cycle and complete)
-4. ~~Heuristics for minimal colorings/Chromatic numbers~~ (We calculate the chromatic number for the current graph)
-5. Chromatic polynomial computation (at least for small graphs)
-6. Algorithms for “pretty” drawings of graphs (cycles that automatically
-look like cycles; grids that look like grids; etc.)
-7. Implementing well-known algorithms (Dijkstra, Ford-Fulkerson,
-spanning tree constructions, etc.)
-8. Any other bells or whistles of your personal interest
+* Place Vertex
+  * Click anywhere on the canvas to place a vertex.
+* Delete Vertex
+  * Click any vertex to delete it.
+* Place Edge
+  * Click on any two verticies in sequence to place an edge between them. You can select the same vertex twice to place a loop.
+* Delete Edge
+  * Click on the little dot on edges to delete them.
+* Select
+  * Click on any vertex or edge to select it. You can name verticies this way or click and hold to drag verticies around the screen.
+
+## Commands
+
+Press the Help button for a list of commands and options
+
+##
+
+Happy graph sketching!
