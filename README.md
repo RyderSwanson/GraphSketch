@@ -25,8 +25,8 @@ Additional bonus features (each +3):
  
 1. ~~Adjacency matrix and/or Laplacian matrix info~~
 2. Eigenvalues, eigenvectors for #1
-3. Quick Cartesian product constructions (e.g. 𝐺×𝐾2 for any 𝐺)
-4. Heuristics for minimal colorings/Chromatic numbers
+3. ~~Quick Cartesian product constructions (e.g. 𝐺×𝐾2 for any 𝐺)~~ (working for cycle and complete)
+4. ~~Heuristics for minimal colorings/Chromatic numbers~~ (We calculate the chromatic number for the current graph)
 5. Chromatic polynomial computation (at least for small graphs)
 6. Algorithms for “pretty” drawings of graphs (cycles that automatically
 look like cycles; grids that look like grids; etc.)

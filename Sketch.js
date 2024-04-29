@@ -21,9 +21,13 @@ var render_degree = false;
 var show_help = false;
 var render_directions = false;
 var number_of_components = 0;
+var chromatic_number = 0;
 var is_bipartite = false;
 var render_bridges = false;
 var render_info = false;
+var current_text_box = '';
+var repel = false;
+var gravity = false;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -46,6 +50,10 @@ class Vertex {
     this.radius = vertexRadius;
     this.selected = false;
     this.name = '';
+
+    // For repelling verticies
+    this.dx = 0;
+    this.dy = 0;
   }
 
   draw() {
@@ -76,6 +84,10 @@ class Vertex {
       strokeWeight(4);
       stroke(255);
       text('d: ' + adjacencyList[this.i][1].length, this.x + this.radius / 2, this.y - this.radius / 2);
+    }
+
+    if (repel) {
+      stepRepelVerticies();
     }
   }
 }
@@ -175,6 +187,7 @@ function setup() {
   renameBox.value('');
   renameBox.input(function() {
     input_text = renameBox.value();
+    current_text_box = 'rename';
   });
 
   enterCommandButton = createButton('Enter Command');
@@ -192,6 +205,7 @@ function setup() {
   enterCommandBox.value('');
   enterCommandBox.input(function() {
     enter_command = enterCommandBox.value();
+    current_text_box = 'enter_command';
   });
 
   renderDegreeBox = createCheckbox('Render Degree', false);
@@ -212,6 +226,16 @@ function setup() {
   renderInfoBox = createCheckbox('Render Info', false);
   renderInfoBox.changed(function() {
     render_info = !render_info;
+  });
+
+  repelBox = createCheckbox('Repel', false);
+  repelBox.changed(function() {
+    repel = !repel;
+  });
+
+  gravityBox = createCheckbox('Gravity', false);
+  gravityBox.changed(function() {
+    gravity = !gravity;
   });
 
   helpButton = createButton('Help');
@@ -239,6 +263,8 @@ function updateButtonPositions() {
   renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
   renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2);
   renderInfoBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
+  repelBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 30);
+  gravityBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 45);
   renameButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 + 5);
   renameBox.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 30);
   enterCommandButton.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 + 5);
@@ -248,7 +274,7 @@ function updateButtonPositions() {
 
 function parseCommand(command) {
   command = command.split(' ');
-  if (command[0] === '/generate') {
+  if (command[0] === '/gen' || command[0] === '/generate') {
     // check second argument
     if (command.length < 2) {
       print('Error: /generate requires a second argument');
@@ -314,6 +340,218 @@ function parseCommand(command) {
     }
     // other types of graphs
   }
+  // Cartesian product
+  else if (command[0] === '/x') {
+    // check second argument
+    if (command.length < 2) {
+      print('Error: /x requires a second argument');
+      return;
+    }
+    else if (command[1] == 'cycle') {
+      // This command generates the cartesian product of the current graph with a cycle graph
+      // The cycle graph is generated with the number of verticies defined by the second argument
+      // We first generate xy coordinates for the cycle graph
+      // then we create a local copy of the adjacency list (call it G)
+      // we then create an instance of G for each vertex in the cycle graph
+      // we then connect the vertices in each G instance to the corresponding vertex in the cycle graph
+
+      // Generate the cycle graph
+      num_vertices = command[2];
+      cycle_graph = [];
+      for (var i = 0; i < num_vertices; i++) {
+        x = windowWidth / 2 + (min(windowWidth, windowHeight) / 4) * cos((2*PI) / num_vertices * i);
+        y = windowHeight / 2 + (min(windowWidth, windowHeight) / 4) * sin((2*PI) / num_vertices * i);
+        cycle_graph.push([new Vertex(x, y, i), []]);
+        cycle_graph[i][1].push((i+1) % num_vertices);
+        cycle_graph[i][1].push((i-1) % num_vertices);
+      }
+
+      // Take a local copy
+      g = adjacencyList.slice();
+      e = edgeList.slice();
+
+
+      // Normalizing g
+      // Get x min and max
+      x_min = 100000;
+      x_max = -100000;
+      for (var i = 0; i < g.length; i++) {
+        if (g[i][0].x < x_min) {
+          x_min = g[i][0].x;
+        }
+        if (g[i][0].x > x_max) {
+          x_max = g[i][0].x;
+        }
+      }
+      // Get y min and max
+      y_min = 100000;
+      y_max = -100000;
+      for (var i = 0; i < g.length; i++) {
+        if (g[i][0].y < y_min) {
+          y_min = g[i][0].y;
+        }
+        if (g[i][0].y > y_max) {
+          y_max = g[i][0].y;
+        }
+      }
+      // Get averages
+      x_avg = (x_max + x_min) / 2;
+      y_avg = (y_max + y_min) / 2;
+      // Translate g to the origin
+      for (var i = 0; i < g.length; i++) {
+        g[i][0].x -= x_avg;
+        g[i][0].y -= y_avg;
+      }
+      // Scale g so that its span is 1/5 of the window size
+      scale = min(windowWidth, windowHeight) / 5;
+      for (var i = 0; i < g.length; i++) {
+        g[i][0].x /= (x_max - x_min);
+        g[i][0].y /= (y_max - y_min);
+        g[i][0].x *= scale;
+        g[i][0].y *= scale;
+      }
+      // Done normalizing g
+
+
+      // Clear graph
+      adjacencyList = [];
+      edgeList = [];
+      // Generate num_verticies instances of g
+      for (var i = 0; i < num_vertices; i++) {
+        for (var j = 0; j < g.length; j++) {
+          adjacencyList.push([new Vertex(g[j][0].x + cycle_graph[i][0].x, g[j][0].y + cycle_graph[i][0].y, i * g.length + j), []]);
+          // Add adjacencies
+          for (var k = 0; k < g[j][1].length; k++) {
+            adjacencyList[i * g.length + j][1].push(i * g.length + g[j][1][k]);
+          }
+        }
+        // add edges based on e
+        for (var j = 0; j < e.length; j++) {
+          v1 = e[j].parents[0];
+          v2 = e[j].parents[1];
+          // Add edge between corresponding vertices in the cycle graph
+          edgeList.push(new Edge(adjacencyList[i * g.length + v1][0], adjacencyList[i * g.length + v2][0]));
+        }
+        
+        // add edges between instances of g
+        if (i > 0) {
+          for (var j = 0; j < g.length; j++) {
+            edgeList.push(new Edge(adjacencyList[(i-1) * g.length + j][0], adjacencyList[i * g.length + j][0]));
+          }
+        }
+      }
+      // Connect the last instance of g to the first
+      for (var i = 0; i < g.length; i++) {
+        edgeList.push(new Edge(adjacencyList[(num_vertices-1) * g.length + i][0], adjacencyList[i][0]));
+      }
+    }
+    // Complete Graph
+    else if (command[1] == 'complete') {
+      // This command generates the cartesian product of the current graph with a complete graph
+      // The complete graph is generated with the number of verticies defined by the second argument
+      // We first generate xy coordinates for the complete graph
+      // then we create a local copy of the adjacency list (call it G)
+      // we then create an instance of G for each vertex in the complete graph
+      // we then connect the vertices in each G instance to the corresponding vertex in the complete graph
+
+      // Generate the complete graph
+      num_vertices = command[2];
+      complete_graph = [];
+      complete_edge_list = [];
+      for (var i = 0; i < num_vertices; i++) {
+        // Generate in a circle
+        x = windowWidth / 2 + (min(windowWidth, windowHeight) / 4) * cos((2*PI) / num_vertices * i);
+        y = windowHeight / 2 + (min(windowWidth, windowHeight) / 4) * sin((2*PI) / num_vertices * i);
+        complete_graph.push([new Vertex(x, y, i), []]);
+        for (var j = 0; j < i; j++) {
+          complete_graph[i][1].push(j);
+          complete_graph[j][1].push(i);
+          complete_edge_list.push(new Edge(complete_graph[i][0], complete_graph[j][0]));
+        }
+      }
+
+      // Take a local copy
+      g = adjacencyList.slice();
+      e = edgeList.slice();
+
+
+      // Normalizing g
+      // Get x min and max
+      x_min = 100000;
+      x_max = -100000;
+      for (var i = 0; i < g.length; i++) {
+        if (g[i][0].x < x_min) {
+          x_min = g[i][0].x;
+        }
+        if (g[i][0].x > x_max) {
+          x_max = g[i][0].x;
+        }
+      }
+      // Get y min and max
+      y_min = 100000;
+      y_max = -100000;
+      for (var i = 0; i < g.length; i++) {
+        if (g[i][0].y < y_min) {
+          y_min = g[i][0].y;
+        }
+        if (g[i][0].y > y_max) {
+          y_max = g[i][0].y;
+        }
+      }
+      // Get averages
+      x_avg = (x_max + x_min) / 2;
+      y_avg = (y_max + y_min) / 2;
+      // Translate g to the origin
+      for (var i = 0; i < g.length; i++) {
+        g[i][0].x -= x_avg;
+        g[i][0].y -= y_avg;
+      }
+      // Scale g so that its span is 1/5 of the window size
+      scale = min(windowWidth, windowHeight) / 5;
+      for (var i = 0; i < g.length; i++) {
+        g[i][0].x /= (x_max - x_min);
+        g[i][0].y /= (y_max - y_min);
+        g[i][0].x *= scale;
+        g[i][0].y *= scale;
+      }
+      // Done normalizing g
+
+
+      // Clear graph
+      adjacencyList = [];
+      edgeList = [];
+      // Generate num_verticies instances of g
+      for (var i = 0; i < num_vertices; i++) {
+        for (var j = 0; j < g.length; j++) {
+          adjacencyList.push([new Vertex(g[j][0].x + complete_graph[i][0].x, g[j][0].y + complete_graph[i][0].y, i * g.length + j), []]);
+          // Add adjacencies
+          for (var k = 0; k < g[j][1].length; k++) {
+            adjacencyList[i * g.length + j][1].push(i * g.length + g[j][1][k]);
+          }
+        }
+        // add edges based on e
+        for (var j = 0; j < e.length; j++) {
+          v1 = e[j].parents[0];
+          v2 = e[j].parents[1];
+          // Add edge between corresponding vertices in the complete graph
+          edgeList.push(new Edge(adjacencyList[i * g.length + v1][0], adjacencyList[i * g.length + v2][0]));
+        }
+
+        
+      }
+      // add edges between instances of g using complete_edge_list
+      for (var i = 0; i < g.length; i++) {
+        for (var j = 0; j < complete_edge_list.length; j++) {
+          v1 = complete_edge_list[j].parents[0];
+          v2 = complete_edge_list[j].parents[1];
+          // Convert v1 and v2 to the correct vertex in the current instance of g
+          v1 = v1 * g.length + i;
+          v2 = v2 * g.length + i;
+          edgeList.push(new Edge(adjacencyList[v1][0], adjacencyList[v2][0]));
+        }
+      }
+    }
+  }
   else if (command[0] === '/clear') {
     adjacencyList = [];
     edgeList = [];
@@ -350,10 +588,10 @@ function drawHelpScreen() {
   text('Commands:', help_screen_x, help_screen_y + 10);
   text('/clear - Clears the current graph', help_screen_x, help_screen_y + 70);
   text('/help - Displays this help screen', help_screen_x, help_screen_y + 100);
-  text('/generate random [num_verticies] - Generates a random graph with num_vertices vertices', help_screen_x, help_screen_y + 160);
-  text('/generate cycle [num_vertices] - Generates a cycle graph with num_vertices vertices', help_screen_x, help_screen_y + 190);
-  text('/generate complete [num_vertices] - Generates a complete graph with num_vertices vertices', help_screen_x, help_screen_y + 220);
-  
+  text('/generate random [num_verticies] ((or /gen))- Generates a random graph with num_vertices vertices', help_screen_x, help_screen_y + 160);
+  text('/generate cycle [num_vertices] ((or /gen))- Generates a cycle graph with num_vertices vertices', help_screen_x, help_screen_y + 190);
+  text('/generate complete [num_vertices] ((or /gen))- Generates a complete graph with num_vertices vertices', help_screen_x, help_screen_y + 220);
+  text('/x cycle [num_vertices] - Generates the cartesian product of the current graph with a cycle graph', help_screen_x, help_screen_y + 250);
 }
 
 // New draw edges based on edge list
@@ -606,6 +844,13 @@ function drawInfo() {
     text(i + ': ' + adjacencyMatrix[i], 10, menuHeight + 240 + 30 * i);
   }
 
+  // Eigenvalue
+  text('Eigenvalue: ' + eigenvalue, 10, menuHeight + 240 + 30 * adjacencyMatrix.length);
+
+
+  // Chromatic number
+  text('Chromatic Number: ' + chromatic_number, 10, menuHeight + 240 + 30 * adjacencyMatrix.length);
+
 }
 
 function draw() {
@@ -628,6 +873,29 @@ function draw() {
   }
   if (show_help) {
     drawHelpScreen();
+  }
+}
+
+function keyPressed() {
+  if (keyCode === ENTER && current_text_box === 'rename') {
+    adjacencyList[vertexSelectionList[0]][0].name = input_text;
+    renameBox.value('');
+    input_text = '';
+  }
+  if (keyCode === ENTER && current_text_box === 'enter_command') {
+    parseCommand(enter_command);
+    enterCommandBox.value('');
+    enter_command = '';
+  }
+  print (keyCode);
+  print (mode);
+  print(Mode.DELETE_VERTEX);
+  if (keyCode === DELETE && mode === Mode.SELECT && vertexSelectionList.length > 0) {
+    print('Delete Vertex');
+    deleteVertex(vertexSelectionList[0]);
+  }
+  if (keyCode === DELETE && mode === Mode.SELECT && edgeSelectionList.length > 0) {
+    deleteEdge(edgeSelectionList[0]);
   }
 }
 
@@ -730,52 +998,13 @@ function mousePressed() {
 
   else if (mode === Mode.DELETE_VERTEX) {
     if (hit[1] !== -1 && hit[0] === 0) {
-      adjacencyList.splice(hit[1], 1);
-      for (var i = 0; i < adjacencyList.length; i++) {
-        if (adjacencyList[i][1].includes(hit[1])) {
-          adjacencyList[i][1] = adjacencyList[i][1].filter(x => x !== hit[1]);
-        }
-      }
-      for (var i = 0; i < edgeList.length; i++) {
-        if (edgeList[i].parents[0] === hit[1] || edgeList[i].parents[1] === hit[1]) {
-          edgeList.splice(i, 1);
-          i -= 1;
-        }
-      }
-      updateVertexIndices(hit[1]);
+      deleteVertex(hit[1]);
     }
   }
 
   else if (mode === Mode.DELETE_EDGE) {
     if (hit[1] !== -1 && hit[0] === 1) {
-      v1 = edgeList[hit[1]].parents[0];
-      v2 = edgeList[hit[1]].parents[1];
-      // Adjacency list
-      // catch loops
-      if (v1 !== v2) {
-        for (var i = 0; i < adjacencyList[v1][1].length; i++) {
-          if (adjacencyList[v1][1][i] === v2) {
-            adjacencyList[v1][1].splice(i, 1);
-            break;
-          }
-        }
-      }
-      for (var i = 0; i < adjacencyList[v2][1].length; i++) {
-        if (adjacencyList[v2][1][i] === v1) {
-          adjacencyList[v2][1].splice(i, 1);
-          break;
-        }
-      }
-      // Edge list
-      for (var i = 0; i < edgeList.length; i++) {
-        if (edgeList[i].parents[0] === v1 && edgeList[i].parents[1] === v2 || edgeList[i].parents[0] === v2 && edgeList[i].parents[1] === v1) {
-          edgeList.splice(i, 1);
-          break;
-        }
-      }
-
-      while (vertexSelectionList.length > 0)
-        vertexSelectionList.pop(); 
+      deleteEdge(hit[1]);
     }
   }
 
@@ -789,9 +1018,57 @@ function mousePressed() {
   updateAdjacencyMatrix();
   number_of_components = detectNumberOfComponents();
   is_bipartite = detectBipartite();
+  chromatic_number = calculateChromaticNumber();
   detectBridges();
   print(adjacencyList);
   print(edgeList);
+}
+
+function deleteVertex(vertex) {
+  adjacencyList.splice(vertex, 1);
+  for (var i = 0; i < adjacencyList.length; i++) {
+    if (adjacencyList[i][1].includes(vertex)) {
+      adjacencyList[i][1] = adjacencyList[i][1].filter(x => x !== vertex);
+    }
+  }
+  for (var i = 0; i < edgeList.length; i++) {
+    if (edgeList[i].parents[0] === vertex || edgeList[i].parents[1] === vertex) {
+      edgeList.splice(i, 1);
+      i -= 1;
+    }
+  }
+  updateVertexIndices(vertex);
+}
+
+function deleteEdge(vertex) {
+  v1 = edgeList[vertex].parents[0];
+  v2 = edgeList[vertex].parents[1];
+  // Adjacency list
+  // catch loops
+  if (v1 !== v2) {
+    for (var i = 0; i < adjacencyList[v1][1].length; i++) {
+      if (adjacencyList[v1][1][i] === v2) {
+        adjacencyList[v1][1].splice(i, 1);
+        break;
+      }
+    }
+  }
+  for (var i = 0; i < adjacencyList[v2][1].length; i++) {
+    if (adjacencyList[v2][1][i] === v1) {
+      adjacencyList[v2][1].splice(i, 1);
+      break;
+    }
+  }
+  // Edge list
+  for (var i = 0; i < edgeList.length; i++) {
+    if (edgeList[i].parents[0] === v1 && edgeList[i].parents[1] === v2 || edgeList[i].parents[0] === v2 && edgeList[i].parents[1] === v1) {
+      edgeList.splice(i, 1);
+      break;
+    }
+  }
+
+  while (vertexSelectionList.length > 0)
+    vertexSelectionList.pop(); 
 }
 
 function updateVertexIndices(vertex_deleted) {
@@ -907,17 +1184,17 @@ function detectNumberOfComponents() {
   for (var i = 0; i < adjacencyList.length; i++) {
     if (!visited[i]) {
       num_components += 1;
-      dfs(i, visited);
+      componentsDFS(i, visited);
     }
   }
   return num_components;
 }
 
-function dfs(vertex, visited) {
+function componentsDFS(vertex, visited) {
   visited[vertex] = true;
   for (var i = 0; i < adjacencyList[vertex][1].length; i++) {
     if (!visited[adjacencyList[vertex][1][i]]) {
-      dfs(adjacencyList[vertex][1][i], visited);
+      componentsDFS(adjacencyList[vertex][1][i], visited);
     }
   }
 }
@@ -936,7 +1213,7 @@ function detectBipartite() {
   for (var i = 0; i < adjacencyList.length; i++) {
     if (!visited[i]) {
       colors[i] = 0;
-      if (!dfsBipartite(i, visited, colors)) {
+      if (!bipartiteDFS(i, visited, colors)) {
         return false;
       }
     }
@@ -944,12 +1221,12 @@ function detectBipartite() {
   return true;
 }
 
-function dfsBipartite(vertex, visited, colors) {
+function bipartiteDFS(vertex, visited, colors) {
   visited[vertex] = true;
   for (var i = 0; i < adjacencyList[vertex][1].length; i++) {
     if (!visited[adjacencyList[vertex][1][i]]) {
       colors[adjacencyList[vertex][1][i]] = 1 - colors[vertex];
-      if (!dfsBipartite(adjacencyList[vertex][1][i], visited, colors)) {
+      if (!bipartiteDFS(adjacencyList[vertex][1][i], visited, colors)) {
         return false;
       }
     }
@@ -973,11 +1250,11 @@ function detectBridges() {
   low = new Array(n).fill(-1);
   for (let i = 0; i < n; ++i) {
     if (!visited[i])
-    bridge_dfs(i);
+    bridgeDFS(i);
 }
 }
 
-function bridge_dfs(v, p = -1) {
+function bridgeDFS(v, p = -1) {
   visited[v] = true;
   tin[v] = low[v] = timer++;
   adj = adjacencyList.map(x => x[1]);
@@ -986,7 +1263,7 @@ function bridge_dfs(v, p = -1) {
     if (visited[to]) {
       low[v] = Math.min(low[v], tin[to]);
     } else {
-      bridge_dfs(to, v);
+      bridgeDFS(to, v);
       low[v] = Math.min(low[v], low[to]);
       if (low[to] > tin[v]) {
         // Set edge to be a bridge
@@ -996,7 +1273,145 @@ function bridge_dfs(v, p = -1) {
           }
         }
       }
-
     }
+  }
+}
+
+function calculateChromaticNumber() {
+  // Calculate the chromatic number of the graph
+  // Use a greedy algorithm to calculate the chromatic number
+  chromatic_number = 0;
+  colors = [];
+  for (var i = 0; i < adjacencyList.length; i++) {
+    colors.push(-1);
+  }
+  for (var i = 0; i < adjacencyList.length; i++) {
+    available = [];
+    for (var j = 0; j < adjacencyList.length; j++) {
+      available.push(true);
+    }
+    for (var j = 0; j < adjacencyList[i][1].length; j++) {
+      if (colors[adjacencyList[i][1][j]] !== -1) {
+        available[colors[adjacencyList[i][1][j]]] = false;
+      }
+    }
+    for (var j = 0; j < adjacencyList.length; j++) {
+      if (available[j]) {
+        colors[i] = j;
+        chromatic_number = max(chromatic_number, j + 1);
+        break;
+      }
+    }
+  }
+  return chromatic_number;
+}
+
+function calculateEigenvalues() {
+  // Calculate the eigenvalues of the adjacency matrix
+  // Use the power iteration method
+  // Set the initial vector to be the all ones vector
+  n = adjacencyMatrix.length;
+  v = new Array(n).fill(1);
+  for (var i = 0; i < 100; i++) {
+    v = matrixVectorMultiply(adjacencyMatrix, v);
+    v = scalarVectorMultiply(1 / norm(v), v);
+  }
+  return dot(v, matrixVectorMultiply(adjacencyMatrix, v)) / dot(v, v);
+}
+
+
+// Simulation stuff
+function calculateForce(vertex) {
+  // Calculate the force on the vertex
+  // The force is the sum of the forces from all other vertices
+  force = [0, 0];
+  for (var i = 0; i < adjacencyList.length; i++) {
+    if (i !== vertex) {
+      // Calculate the force between vertex and i
+      f = calculateForceBetweenVertices(vertex, i);
+      force[0] += f[0];
+      force[1] += f[1];
+    }
+  }
+
+  // If out of bounds, add a force to move the vertex back into bounds
+  if (adjacencyList[vertex][0].x < 0) {
+    force[0] += adjacencyList[vertex][0].x;
+  }
+  if (adjacencyList[vertex][0].x > windowWidth) {
+    force[0] += windowWidth - adjacencyList[vertex][0].x;
+  }
+  if (adjacencyList[vertex][0].y < menuHeight) {
+    force[1] += adjacencyList[vertex][0].y - menuHeight;
+  }
+  if (adjacencyList[vertex][0].y > windowHeight) {
+    force[1] += windowHeight - adjacencyList[vertex][0].y;
+  }
+
+  return force;
+}
+
+function calculateForceBetweenVertices(v1, v2) {
+  // Calculate the force between two vertices
+  // The force is proportional to the inverse square of the distance between the vertices
+  // The force is attractive if the vertices are connected by an edge
+  // The force is repulsive if the vertices are not connected by an edge
+  x1 = adjacencyList[v1][0].x;
+  y1 = adjacencyList[v1][0].y;
+  x2 = adjacencyList[v2][0].x;
+  y2 = adjacencyList[v2][0].y;
+  d = dist(x1, y1, x2, y2);
+  f = [0, 0];
+  if (adjacencyList[v1][1].includes(v2)) {
+    f[0] = (x2 - x1) / d;
+    f[1] = (y2 - y1) / d;
+    // Add a spring force to the force
+    spring_constant = 0.31;
+    spring_length = 500;
+    d = dist(x1, y1, x2, y2);
+    f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
+    f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
+  }
+  else {
+    f[0] = -(x2 - x1) / d;
+    f[1] = -(y2 - y1) / d;
+    // Add a spring force to the force
+    spring_constant = 0.31;
+    spring_length = 700;
+    d = dist(x1, y1, x2, y2);
+    f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
+    f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
+  }
+
+  // scale force
+  force_constant = 0.01;
+  f[0] *= force_constant;
+  f[1] *= force_constant;
+
+
+
+  return f;
+}
+
+function stepRepelVerticies() {
+  // Update the positions of the vertices based on the forces
+  for (var i = 0; i < adjacencyList.length; i++) {
+    f = calculateForce(i);
+    adjacencyList[i][0].dx += f[0];
+    adjacencyList[i][0].dy += f[1];
+
+    if (gravity) {
+      // Add a force to pull the vertex down
+      adjacencyList[i][0].dy += 0.1;
+    }
+
+    // Air resistance
+    adjacencyList[i][0].dx *= 0.99;
+    adjacencyList[i][0].dy *= 0.99;
+
+    // Update the position of the vertex
+    adjacencyList[i][0].x += adjacencyList[i][0].dx;
+    adjacencyList[i][0].y += adjacencyList[i][0].dy;
+
   }
 }
