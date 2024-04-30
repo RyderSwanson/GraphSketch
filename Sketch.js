@@ -22,17 +22,21 @@ var show_help = false;
 var render_directions = false;
 var number_of_components = 0;
 var chromatic_number = 0;
+var eigenvalue = 0;
+var eigenvalue_vector = [];
 var is_bipartite = false;
 var render_bridges = false;
 var render_info = false;
+var simple_edges = false;
 var current_text_box = '';
 var repel = false;
 var gravity = false;
 var mouse_x_last_frame = 0;
 var mouse_y_last_frame = 0;
-var gravity_strength = 0.05;
-var spring_edge_length = 500;
-var spring_edge_strength = 0.21;
+var gravity_strength = 0.5;
+var spring_edge_length = 400;
+var spring_edge_strength = 2.5;
+var simulation_steps = 2;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -91,10 +95,6 @@ class Vertex {
       strokeWeight(4);
       stroke(255);
       text('d: ' + adjacencyList[this.i][1].length, this.x + this.radius / 2, this.y - this.radius / 2);
-    }
-
-    if (repel) {
-      stepRepelVerticies();
     }
   }
 }
@@ -245,9 +245,14 @@ function setup() {
     gravity = !gravity;
   });
 
-  gravitySlider = createSlider(0, 100, gravity_strength * 400);
+  simpleEdgesBox = createCheckbox('Simple Edges', false);
+  simpleEdgesBox.changed(function() {
+    simple_edges = !simple_edges;
+  });
+
+  gravitySlider = createSlider(0, 100, gravity_strength * 50);
   gravitySlider.input(function() {
-    gravity_strength = gravitySlider.value() / 400;
+    gravity_strength = gravitySlider.value() / 50;
   });
 
   springEdgeLengthSlider = createSlider(0, 800, spring_edge_length);
@@ -255,9 +260,14 @@ function setup() {
     spring_edge_length = springEdgeLengthSlider.value();
   });
 
-  springEdgeStrengthSlider = createSlider(0, 200, spring_edge_strength * 100);
+  springEdgeStrengthSlider = createSlider(0, 200, spring_edge_strength * 20);
   springEdgeStrengthSlider.input(function() {
-    spring_edge_strength = springEdgeStrengthSlider.value() / 100;
+    spring_edge_strength = springEdgeStrengthSlider.value() / 20;
+  });
+
+  simulationStepsSlider = createSlider(1, 10, simulation_steps);
+  simulationStepsSlider.input(function() {
+    simulation_steps = simulationStepsSlider.value();
   });
 
   helpButton = createButton('Help');
@@ -293,10 +303,12 @@ function updateButtonPositions() {
 
   repelBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 30);
   gravityBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
+  simpleEdgesBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2);
   
   gravitySlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 30);
   springEdgeLengthSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
   springEdgeStrengthSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2);
+  simulationStepsSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 + 15);
 
   renameButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 + 5);
   renameBox.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 30);
@@ -345,9 +357,11 @@ function parseCommand(command) {
         x = windowWidth / 2 + (min(windowWidth, windowHeight) / 2.25) * cos((2*PI) / num_vertices * i);
         y = windowHeight / 2 + (min(windowWidth, windowHeight) / 2.25) * sin((2*PI) / num_vertices * i);
         adjacencyList.push([new Vertex(x, y, i), []]);
-        adjacencyList[i][1].push((i+1) % num_vertices);
-        adjacencyList[i][1].push((i-1) % num_vertices);
+        if (i < num_vertices - 1) {
+          adjacencyList[i][1].push(i+1);
+        }
         if (i > 0) {
+          adjacencyList[i][1].push(i-1);
           edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[(i-1) % num_vertices][0]));
         }
       }
@@ -356,7 +370,7 @@ function parseCommand(command) {
       adjacencyList[0][1].push(num_vertices-1);
       edgeList.push(new Edge(adjacencyList[num_vertices-1][0], adjacencyList[0][0]));
     }
-    else if (command[1] == 'complete') {
+    else if (command[1] === 'complete' || command[1] === 'com') {
       adjacencyList = [];
       edgeList = [];
       num_vertices = command[2];
@@ -397,8 +411,12 @@ function parseCommand(command) {
         x = windowWidth / 2 + (min(windowWidth, windowHeight) / 4) * cos((2*PI) / num_vertices * i);
         y = windowHeight / 2 + (min(windowWidth, windowHeight) / 4) * sin((2*PI) / num_vertices * i);
         cycle_graph.push([new Vertex(x, y, i), []]);
-        cycle_graph[i][1].push((i+1) % num_vertices);
-        cycle_graph[i][1].push((i-1) % num_vertices);
+        if (i < num_vertices - 1) {
+          cycle_graph[i][1].push(i+1);
+        }
+        if (i > 0) {
+          cycle_graph[i][1].push(i-1);
+        }
       }
 
       // Take a local copy
@@ -472,12 +490,16 @@ function parseCommand(command) {
         if (i > 0) {
           for (var j = 0; j < g.length; j++) {
             edgeList.push(new Edge(adjacencyList[(i-1) * g.length + j][0], adjacencyList[i * g.length + j][0]));
+            adjacencyList[(i-1) * g.length + j][1].push(i * g.length + j);
+            adjacencyList[i * g.length + j][1].push((i-1) * g.length + j);
           }
         }
       }
       // Connect the last instance of g to the first
       for (var i = 0; i < g.length; i++) {
         edgeList.push(new Edge(adjacencyList[(num_vertices-1) * g.length + i][0], adjacencyList[i][0]));
+        adjacencyList[(num_vertices-1) * g.length + i][1].push(i);
+        adjacencyList[i][1].push((num_vertices-1) * g.length + i);
       }
     }
     // Complete Graph
@@ -583,6 +605,8 @@ function parseCommand(command) {
           v1 = v1 * g.length + i;
           v2 = v2 * g.length + i;
           edgeList.push(new Edge(adjacencyList[v1][0], adjacencyList[v2][0]));
+          adjacencyList[v1][1].push(v2);
+          adjacencyList[v2][1].push(v1);
         }
       }
     }
@@ -635,95 +659,52 @@ function drawEdges() {
   stroke(0);
   // Filter edge list into unique edges based on parents
   unique_edges = edgeList.filter((x, i, a) => a.findIndex(t => t.parents[0] === x.parents[0] && t.parents[1] === x.parents[1]) === i);
-  // print('Unique Edges: ');
-  // print(unique_edges);
   // For each unique edge, generate a list of edges that are parallel
-  for (var i = 0; i < unique_edges.length; i++) {
-    edge = unique_edges[i];
-    // Find all edges that are parallel
-    parallel_edges = edgeList.filter(x => x.parents[0] === edge.parents[0] && x.parents[1] === edge.parents[1] || x.parents[0] === edge.parents[1] && x.parents[1] === edge.parents[0]);
-    // print('Parallel Edges: ');
-    // print(parallel_edges);
-    // Draw the edges
-    for (var j = 0; j < parallel_edges.length; j++) {
-      v1 = adjacencyList[parallel_edges[j].parents[0]][0];
-      v2 = adjacencyList[parallel_edges[j].parents[1]][0];
+  if (simple_edges) {
+    for (var i = 0; i < edgeList.length; i++) {
+      edge = edgeList[i];
+      v1 = edge.head;
+      v2 = edge.tail;
       x1 = v1.x;
       y1 = v1.y;
       x2 = v2.x;
       y2 = v2.y;
-      // Loop?
-      if (v1 === v2) {
-        // Draw the loop
-        stroke(edgeColor);
-        strokeWeight(4);
-        noFill();
-        // Determine angle based on number of loops
-        angle = (2*PI) / (parallel_edges.length) * j;
-        min_angle = PI / 4;
-        angle_offset = (PI / 4) / (parallel_edges.length) + min_angle;
-        // Determine control points
-        scale = 1000;
-        curve_x1 = x1 + (scale * cos(angle));
-        curve_y1 = y1 + (scale * sin(angle));
-        curve_x2 = x1 + (scale * cos(angle + angle_offset));
-        curve_y2 = y1 + (scale * sin(angle + angle_offset));
-
-        // Find midpoint
-        middle_x = x1 - (scale / 11) * cos(angle + angle_offset / 2);
-        middle_y = y1 - (scale / 11) * sin(angle + angle_offset / 2);
-        parallel_edges[j].middle_x = middle_x;
-        parallel_edges[j].middle_y = middle_y;
-
-        if (parallel_edges[j].selected) {
-          stroke(selectedColor);
-          fill(selectedColor);
-        }
-        else if (parallel_edges[j].color !== null){
-          stroke(parallel_edges[j].color);
-          fill(parallel_edges[j].color);
-        }
-        else {
+      line(x1, y1, x2, y2);
+    }
+  }
+  else {
+    for (var i = 0; i < unique_edges.length; i++) {
+      edge = unique_edges[i];
+      // Find all edges that are parallel
+      parallel_edges = edgeList.filter(x => x.parents[0] === edge.parents[0] && x.parents[1] === edge.parents[1] || x.parents[0] === edge.parents[1] && x.parents[1] === edge.parents[0]);
+      // Draw the edges
+      for (var j = 0; j < parallel_edges.length; j++) {
+        v1 = adjacencyList[parallel_edges[j].parents[0]][0];
+        v2 = adjacencyList[parallel_edges[j].parents[1]][0];
+        x1 = v1.x;
+        y1 = v1.y;
+        x2 = v2.x;
+        y2 = v2.y;
+        // Loop?
+        if (v1 === v2) {
+          // Draw the loop
           stroke(edgeColor);
-          fill(edgeColor);
-        }
-        // Draw the middle point
-        strokeWeight(0);
-        circle(middle_x, middle_y, parallel_edges[j].radius);
-        // Draw the edge
-        strokeWeight(4);
-        noFill();
-        curve(curve_x1, curve_y1, x1, y1, x1, y1, curve_x2, curve_y2);
-      }
-      else {
+          strokeWeight(4);
+          noFill();
+          // Determine angle based on number of loops
+          angle = (2*PI) / (parallel_edges.length) * j;
+          min_angle = PI / 4;
+          angle_offset = (PI / 4) / (parallel_edges.length) + min_angle;
+          // Determine control points
+          scale = 1000;
+          curve_x1 = x1 + (scale * cos(angle));
+          curve_y1 = y1 + (scale * sin(angle));
+          curve_x2 = x1 + (scale * cos(angle + angle_offset));
+          curve_y2 = y1 + (scale * sin(angle + angle_offset));
 
-        // creating control points that lie on the line between the two vertices
-        scale = .2;
-        curve_x1 = ((x1 - x2) * scale) + x1;
-        curve_y1 = ((y1 - y2) * scale) + y1;
-        curve_x2 = ((x2 - x1) * scale) + x2;
-        curve_y2 = ((y2 - y1) * scale) + y2;
-
-        // Number of edges between the two vertices
-        num_edges = parallel_edges.length;
-
-        if (num_edges > 1) {
-          d = dist(x1, y1, x2, y2);
-          // move points perpendicular to the line
-          bend_amount = ((1 / (num_edges+1)) * (j+1)) - 0.5;
-          // 250 is the minimum bend amount
-          bend_amount *= (d / 2) + 250;
-          bend_amount *= num_edges/3;
-          curve_x1 += bend_amount * ((y2 - y1) / d);
-          curve_y1 += bend_amount * ((x1 - x2) / d);
-          curve_x2 += bend_amount * ((y2 - y1) / d);
-          curve_y2 += bend_amount * ((x1 - x2) / d);
-
-          // Draw the middle point
-          middle_x = (x1 + x2) / 2;
-          middle_y = (y1 + y2) / 2;
-          middle_x -= bend_amount * ((y2 - y1) / d) / 8; // Turns out that 8 is the magic number
-          middle_y -= bend_amount * ((x1 - x2) / d) / 8;
+          // Find midpoint
+          middle_x = x1 - (scale / 11) * cos(angle + angle_offset / 2);
+          middle_y = y1 - (scale / 11) * sin(angle + angle_offset / 2);
           parallel_edges[j].middle_x = middle_x;
           parallel_edges[j].middle_y = middle_y;
 
@@ -739,68 +720,120 @@ function drawEdges() {
             stroke(edgeColor);
             fill(edgeColor);
           }
-          
-          // draw middle point
-          strokeWeight(4);
-          if (render_directions) {
-            drawArrow(parallel_edges[j]);
-          }
-          else {
-            strokeWeight(0);
-            circle(middle_x, middle_y, parallel_edges[j].radius);
-            strokeWeight(4);
-          }
-          // Draw the edge
-          noFill();
-          curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
-        }
-        else {
           // Draw the middle point
-          middle_x = (x1 + x2) / 2;
-          middle_y = (y1 + y2) / 2;
-          parallel_edges[j].middle_x = middle_x;
-          parallel_edges[j].middle_y = middle_y;
-
-          if (parallel_edges[j].selected) {
-            stroke(selectedColor);
-            fill(selectedColor);
-          }
-          else if (parallel_edges[j].color !== null){
-            stroke(parallel_edges[j].color);
-            fill(parallel_edges[j].color);
-          }
-          else {
-            stroke(edgeColor);
-            fill(edgeColor);
-          }
-          
-          // draw middle point
-          strokeWeight(4);
-          if (render_directions) {
-            drawArrow(parallel_edges[j]);
-          }
-          else {
-            strokeWeight(0);
-            circle(middle_x, middle_y, parallel_edges[j].radius);
-            strokeWeight(4);
-          }
+          strokeWeight(0);
+          circle(middle_x, middle_y, parallel_edges[j].radius);
           // Draw the edge
+          strokeWeight(4);
           noFill();
-          line(x1, y1, x2, y2);
-        }
-      }
-
-      if (render_bridges) {
-        if (parallel_edges[j].is_bridge) {
-          parallel_edges[j].color = 'red';
+          curve(curve_x1, curve_y1, x1, y1, x1, y1, curve_x2, curve_y2);
         }
         else {
-          parallel_edges[j].color = null;
+
+          // creating control points that lie on the line between the two vertices
+          scale = .2;
+          curve_x1 = ((x1 - x2) * scale) + x1;
+          curve_y1 = ((y1 - y2) * scale) + y1;
+          curve_x2 = ((x2 - x1) * scale) + x2;
+          curve_y2 = ((y2 - y1) * scale) + y2;
+
+          // Number of edges between the two vertices
+          num_edges = parallel_edges.length;
+
+          if (num_edges > 1) {
+            d = dist(x1, y1, x2, y2);
+            // move points perpendicular to the line
+            bend_amount = ((1 / (num_edges+1)) * (j+1)) - 0.5;
+            // 250 is the minimum bend amount
+            bend_amount *= (d / 2) + 250;
+            bend_amount *= num_edges/3;
+            curve_x1 += bend_amount * ((y2 - y1) / d);
+            curve_y1 += bend_amount * ((x1 - x2) / d);
+            curve_x2 += bend_amount * ((y2 - y1) / d);
+            curve_y2 += bend_amount * ((x1 - x2) / d);
+
+            // Draw the middle point
+            middle_x = (x1 + x2) / 2;
+            middle_y = (y1 + y2) / 2;
+            middle_x -= bend_amount * ((y2 - y1) / d) / 8; // Turns out that 8 is the magic number
+            middle_y -= bend_amount * ((x1 - x2) / d) / 8;
+            parallel_edges[j].middle_x = middle_x;
+            parallel_edges[j].middle_y = middle_y;
+
+            if (parallel_edges[j].selected) {
+              stroke(selectedColor);
+              fill(selectedColor);
+            }
+            else if (parallel_edges[j].color !== null){
+              stroke(parallel_edges[j].color);
+              fill(parallel_edges[j].color);
+            }
+            else {
+              stroke(edgeColor);
+              fill(edgeColor);
+            }
+            
+            // draw middle point
+            strokeWeight(4);
+            if (render_directions) {
+              drawArrow(parallel_edges[j]);
+            }
+            else {
+              strokeWeight(0);
+              circle(middle_x, middle_y, parallel_edges[j].radius);
+              strokeWeight(4);
+            }
+            // Draw the edge
+            noFill();
+            curve(curve_x1, curve_y1, x1, y1, x2, y2, curve_x2, curve_y2);
+          }
+          else {
+            // Draw the middle point
+            middle_x = (x1 + x2) / 2;
+            middle_y = (y1 + y2) / 2;
+            parallel_edges[j].middle_x = middle_x;
+            parallel_edges[j].middle_y = middle_y;
+
+            if (parallel_edges[j].selected) {
+              stroke(selectedColor);
+              fill(selectedColor);
+            }
+            else if (parallel_edges[j].color !== null){
+              stroke(parallel_edges[j].color);
+              fill(parallel_edges[j].color);
+            }
+            else {
+              stroke(edgeColor);
+              fill(edgeColor);
+            }
+            
+            // draw middle point
+            strokeWeight(4);
+            if (render_directions) {
+              drawArrow(parallel_edges[j]);
+            }
+            else {
+              strokeWeight(0);
+              circle(middle_x, middle_y, parallel_edges[j].radius);
+              strokeWeight(4);
+            }
+            // Draw the edge
+            noFill();
+            line(x1, y1, x2, y2);
+          }
+        }
+
+        if (render_bridges) {
+          if (parallel_edges[j].is_bridge) {
+            parallel_edges[j].color = 'red';
+          }
+          else {
+            parallel_edges[j].color = null;
+          }
         }
       }
     }
   }
-
 }
 
 function drawArrow(edge) {
@@ -880,11 +913,12 @@ function drawInfo() {
   }
 
   // Eigenvalue
-  text('Eigenvalue: ' + eigenvalue, 10, menuHeight + 240 + 30 * adjacencyMatrix.length);
+  text('Eigenvalue: ' + eigenvalue.toPrecision(3), 10, menuHeight + 240 + 30 * adjacencyMatrix.length);
+  text('Eigenvector: ' + eigenvalue_vector.map(x => x.toPrecision(3)), 10, menuHeight + 270 + 30 * adjacencyMatrix.length);
 
 
   // Chromatic number
-  text('Chromatic Number: ' + chromatic_number, 10, menuHeight + 270 + 30 * adjacencyMatrix.length);
+  text('Chromatic Number: ' + chromatic_number, 10, menuHeight + 300 + 30 * adjacencyMatrix.length);
 
 }
 
@@ -909,15 +943,22 @@ function draw() {
   if (show_help) {
     drawHelpScreen();
   }
+
   // Draw labels for sliders
   fill(0);
   stroke(0);
+  strokeWeight(1);
   textSize(12);
   textFont('Arial');
   textAlign(RIGHT, TOP);
   text('Gravity: ' + gravity_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 30);
   text('Distance: ' + spring_edge_length, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
   text('Repulsion: ' + spring_edge_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2);
+  text('Steps: ' + simulation_steps, button_grid_unit*7 + button_x_offset, menuHeight / 2 + 15);
+  
+  if (repel) {
+    stepRepelVerticies();
+  }
 
   mouse_x_last_frame = mouseX;
   mouse_y_last_frame = mouseY;
@@ -1101,9 +1142,9 @@ function mousePressed() {
   if (vertexSelectionList.length > 1) {
     vertexSelectionList.shift();
   }
-  updateInfo();
-  print(adjacencyList);
-  print(edgeList);
+  if (drawInfo){
+    updateInfo();
+  }
 }
 
 function updateInfo() {
@@ -1115,7 +1156,9 @@ function updateInfo() {
   is_bipartite = detectBipartite();
   chromatic_number = calculateChromaticNumber();
   detectBridges();
-  eigenvalue = calculateEigenvalues();
+  eigenvalueAndVector = calculateEigenvalues();
+  eigenvalue = eigenvalueAndVector[0];
+  eigenvalue_vector = eigenvalueAndVector[1];
 }
 
 function deleteVertex(vertex) {
@@ -1410,7 +1453,9 @@ function calculateEigenvalues() {
     v = matrixVectorMultiply(adjacencyMatrix, v);
     v = scalarVectorMultiply(1 / normalize(v), v);
   }
-  return dot(v, matrixVectorMultiply(adjacencyMatrix, v)) / dot(v, v);
+  // return [eigenvalue, [eigenvector]]
+  return [dot(v, matrixVectorMultiply(adjacencyMatrix, v)), v];
+
 }
 
 function normalize(v) {
@@ -1468,19 +1513,32 @@ function calculateForce(vertex) {
       force[1] += f[1];
     }
   }
+  // dampen force
+  dampen_constant = 0.01 / simulation_steps;
+  force[0] *= dampen_constant;
+  force[1] *= dampen_constant;
 
+  friction = 0.02;
   // If out of bounds, add a force to move the vertex back into bounds
   if (adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2) < 0) {
     force[0] -= adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2);
+    // friction
+    adjacencyList[vertex][0].dy *= 1 - friction;
   }
   if (adjacencyList[vertex][0].x + (adjacencyList[vertex][0].radius/2) > windowWidth) {
     force[0] += windowWidth - adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2);
+    //friction
+    adjacencyList[vertex][0].dy *= 1 - friction;
   }
   if (adjacencyList[vertex][0].y + (adjacencyList[vertex][0].radius/2) > windowHeight) {
     force[1] += windowHeight - adjacencyList[vertex][0].y - (adjacencyList[vertex][0].radius/2);
+    //friction
+    adjacencyList[vertex][0].dx *= 1 - friction;
   }
   if (adjacencyList[vertex][0].y - (adjacencyList[vertex][0].radius/2) < menuHeight) {
     force[1] += menuHeight - adjacencyList[vertex][0].y + (adjacencyList[vertex][0].radius/2);
+    //friction
+    adjacencyList[vertex][0].dx *= 1 - friction;
   }
 
   return force;
@@ -1499,81 +1557,64 @@ function calculateForceBetweenVertices(v1, v2) {
   f = [0, 0];
   if (adjacencyList[v1][1].includes(v2)) {
     // Add a spring force to the force
-    // spring_constant = 0.21;
     spring_constant = spring_edge_strength;
-    // spring_length = 500;
     spring_length = spring_edge_length;
-    d = dist(x1, y1, x2, y2);
-    f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
-    f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
-    // dampen
-    f[0] *= 0.1;
-    f[1] *= 0.1;
   }
   else {
     // Add a spring force to the force
-    spring_constant = 0.001;
+    spring_constant = 0.01;
     spring_length = 700;
-    d = dist(x1, y1, x2, y2);
-    f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;  
-    f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
-
-    // dampen
-    f[0] *= 0.1;
-    f[1] *= 0.1;
   }
 
-  // scale force
-  force_constant = 0.05;
-  f[0] *= force_constant;
-  f[1] *= force_constant;
-
-
+  f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
+  f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
 
   return f;
 }
 
 function stepRepelVerticies() {
   // Update the positions of the vertices based on the forces
-  for (var i = 0; i < adjacencyList.length; i++) {
-    max_vel = 50;
-
-    f = calculateForce(i);
-    adjacencyList[i][0].dx += f[0];
-    adjacencyList[i][0].dy += f[1];
+  for (var i = 0; i < simulation_steps; i++) {
+    max_vel = 500;
     
-    if (gravity) {
-      // Add a force to pull the vertex down
-      adjacencyList[i][0].dy += gravity_strength;
+    for (var j = 0; j < adjacencyList.length; j++) {
+      f = calculateForce(j);
+      adjacencyList[j][0].dx += f[0];
+      adjacencyList[j][0].dy += f[1];
+      
+      // Limit the velocity of the vertex
+      if (adjacencyList[j][0].dx > max_vel) {
+        adjacencyList[j][0].dx = max_vel;
+      }
+      if (adjacencyList[j][0].dx < -max_vel) {
+        adjacencyList[j][0].dx = -max_vel;
+      }
+      if (adjacencyList[j][0].dy > max_vel) {
+        adjacencyList[j][0].dy = max_vel;
+      }
+      if (adjacencyList[j][0].dy < -max_vel) {
+        adjacencyList[j][0].dy = -max_vel;
+      }
+      if (gravity) {
+        // Add a force to pull the vertex down
+        adjacencyList[j][0].dy += gravity_strength / simulation_steps;
+      }
+      // Air resistance
+      adjacencyList[j][0].dx *= 1 - (0.02 / simulation_steps);
+      adjacencyList[j][0].dy *= 1 - (0.02 / simulation_steps);
+      
+      if (adjacencyList[j][0].selected === true && dragging === true) {
+        // vertex is being dragged, so set the velocity to the calculated speed
+        adjacencyList[j][0].dx = mouseX - mouse_x_last_frame;
+        adjacencyList[j][0].dy = mouseY - mouse_y_last_frame;
+      }
+      else {
+        // Update the position of the vertex
+        adjacencyList[j][0].x += adjacencyList[j][0].dx / simulation_steps;
+        adjacencyList[j][0].y += adjacencyList[j][0].dy / simulation_steps;
+      }
     }
     
-    // Air resistance
-    adjacencyList[i][0].dx *= 0.99;
-    adjacencyList[i][0].dy *= 0.99;
     
-    // Limit the velocity of the vertex
-    if (adjacencyList[i][0].dx > max_vel) {
-      adjacencyList[i][0].dx = max_vel;
-    }
-    if (adjacencyList[i][0].dx < -max_vel) {
-      adjacencyList[i][0].dx = -max_vel;
-    }
-    if (adjacencyList[i][0].dy > max_vel) {
-      adjacencyList[i][0].dy = max_vel;
-    }
-    if (adjacencyList[i][0].dy < -max_vel) {
-      adjacencyList[i][0].dy = -max_vel;
-    }
-
-    if (adjacencyList[i][0].selected === true && dragging === true) {
-      // vertex is being dragged, so set the velocity to the calculated speed
-      adjacencyList[i][0].dx = mouseX - mouse_x_last_frame;
-      adjacencyList[i][0].dy = mouseY - mouse_y_last_frame;
-    }
-    else {
-      // Update the position of the vertex
-      adjacencyList[i][0].x += adjacencyList[i][0].dx;
-      adjacencyList[i][0].y += adjacencyList[i][0].dy;
-    }
   }
 }
