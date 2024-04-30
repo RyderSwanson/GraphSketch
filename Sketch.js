@@ -28,6 +28,11 @@ var render_info = false;
 var current_text_box = '';
 var repel = false;
 var gravity = false;
+var mouse_x_last_frame = 0;
+var mouse_y_last_frame = 0;
+var gravity_strength = 0.05;
+var spring_edge_length = 500;
+var spring_edge_strength = 0.21;
 
 const Mode = {
   PLACE_VERTEX: 0,
@@ -54,6 +59,8 @@ class Vertex {
     // For repelling verticies
     this.dx = 0;
     this.dy = 0;
+    this.last_frame_x = 0;
+    this.last_frame_y = 0;
   }
 
   draw() {
@@ -238,6 +245,21 @@ function setup() {
     gravity = !gravity;
   });
 
+  gravitySlider = createSlider(0, 100, gravity_strength * 400);
+  gravitySlider.input(function() {
+    gravity_strength = gravitySlider.value() / 400;
+  });
+
+  springEdgeLengthSlider = createSlider(0, 800, spring_edge_length);
+  springEdgeLengthSlider.input(function() {
+    spring_edge_length = springEdgeLengthSlider.value();
+  });
+
+  springEdgeStrengthSlider = createSlider(0, 200, spring_edge_strength * 100);
+  springEdgeStrengthSlider.input(function() {
+    spring_edge_strength = springEdgeStrengthSlider.value() / 100;
+  });
+
   helpButton = createButton('Help');
   helpButton.style('background-color', buttonColor);
   helpButton.style('color', 'white');
@@ -255,20 +277,33 @@ function updateButtonPositions() {
   button_x_offset = ((windowWidth / 8) / 4);
   button_grid_unit = windowWidth / 11;
   placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
+
   deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
+
   placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
+
   deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
+
   selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
+
   renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 30);
   renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
   renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2);
   renderInfoBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
+
   repelBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 30);
   gravityBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
+  
+  gravitySlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 30);
+  springEdgeLengthSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
+  springEdgeStrengthSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2);
+
   renameButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 + 5);
   renameBox.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 30);
+
   enterCommandButton.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 + 5);
   enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 30);
+
   helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
 }
 
@@ -874,6 +909,18 @@ function draw() {
   if (show_help) {
     drawHelpScreen();
   }
+  // Draw labels for sliders
+  fill(0);
+  stroke(0);
+  textSize(12);
+  textFont('Arial');
+  textAlign(RIGHT, TOP);
+  text('Gravity: ' + gravity_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 30);
+  text('Distance: ' + spring_edge_length, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
+  text('Repulsion: ' + spring_edge_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2);
+
+  mouse_x_last_frame = mouseX;
+  mouse_y_last_frame = mouseY;
 }
 
 function keyPressed() {
@@ -1451,11 +1498,11 @@ function calculateForceBetweenVertices(v1, v2) {
   d = dist(x1, y1, x2, y2);
   f = [0, 0];
   if (adjacencyList[v1][1].includes(v2)) {
-    // f[0] = (x2 - x1) / d;
-    // f[1] = (y2 - y1) / d;
     // Add a spring force to the force
-    spring_constant = 0.21;
-    spring_length = 500;
+    // spring_constant = 0.21;
+    spring_constant = spring_edge_strength;
+    // spring_length = 500;
+    spring_length = spring_edge_length;
     d = dist(x1, y1, x2, y2);
     f[0] += spring_constant * (d - spring_length) * (x2 - x1) / d;
     f[1] += spring_constant * (d - spring_length) * (y2 - y1) / d;
@@ -1464,8 +1511,6 @@ function calculateForceBetweenVertices(v1, v2) {
     f[1] *= 0.1;
   }
   else {
-    // f[0] = -(x2 - x1) / d;
-    // f[1] = -(y2 - y1) / d;
     // Add a spring force to the force
     spring_constant = 0.001;
     spring_length = 700;
@@ -1492,19 +1537,20 @@ function stepRepelVerticies() {
   // Update the positions of the vertices based on the forces
   for (var i = 0; i < adjacencyList.length; i++) {
     max_vel = 50;
+
     f = calculateForce(i);
     adjacencyList[i][0].dx += f[0];
     adjacencyList[i][0].dy += f[1];
-
-    if (gravity && adjacencyList[i][0].selected === false) {
+    
+    if (gravity) {
       // Add a force to pull the vertex down
-      adjacencyList[i][0].dy += 0.05;
+      adjacencyList[i][0].dy += gravity_strength;
     }
-
+    
     // Air resistance
     adjacencyList[i][0].dx *= 0.99;
     adjacencyList[i][0].dy *= 0.99;
-
+    
     // Limit the velocity of the vertex
     if (adjacencyList[i][0].dx > max_vel) {
       adjacencyList[i][0].dx = max_vel;
@@ -1519,9 +1565,15 @@ function stepRepelVerticies() {
       adjacencyList[i][0].dy = -max_vel;
     }
 
-    // Update the position of the vertex
-    adjacencyList[i][0].x += adjacencyList[i][0].dx;
-    adjacencyList[i][0].y += adjacencyList[i][0].dy;
-
+    if (adjacencyList[i][0].selected === true && dragging === true) {
+      // vertex is being dragged, so set the velocity to the calculated speed
+      adjacencyList[i][0].dx = mouseX - mouse_x_last_frame;
+      adjacencyList[i][0].dy = mouseY - mouse_y_last_frame;
+    }
+    else {
+      // Update the position of the vertex
+      adjacencyList[i][0].x += adjacencyList[i][0].dx;
+      adjacencyList[i][0].y += adjacencyList[i][0].dy;
+    }
   }
 }
