@@ -43,8 +43,7 @@ const Mode = {
   PLACE_EDGE: 1,
   SELECT: 2,
   DELETE_VERTEX: 3,
-  DELETE_EDGE: 4,
-  PLACE_LOOP: 5,
+  DELETE_EDGE: 4
 };
 
 var mode;
@@ -117,67 +116,87 @@ class Edge {
   }
 }
 
+function preload() {
+  // Load logo
+  logo = loadImage('Logo.png');
+}
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
 
   // default mode
   mode = Mode.PLACE_VERTEX;
 
-  // setup the place vertex button
-  placeVertexButton = createButton('Place Vertex');
-  placeVertexButton.style('background-color', buttonColor);
-  placeVertexButton.style('color', 'white');
-  placeVertexButton.style('font-size', '20px');
-  placeVertexButton.mousePressed(function() {
-    mode = Mode.PLACE_VERTEX;
+  modeSelect = createSelect();
+  modeSelect.option('Place Vertex', Mode.PLACE_VERTEX);
+  modeSelect.option('Place Edge', Mode.PLACE_EDGE);
+  modeSelect.option('Select', Mode.SELECT);
+  modeSelect.option('Delete Vertex', Mode.DELETE_VERTEX);
+  modeSelect.option('Delete Edge', Mode.DELETE_EDGE);
+  modeSelect.changed(function() {
+    mode = Number(modeSelect.selected());
+    print(typeof(modeSelect.value()));
     // clear selection list
     vertexSelectionList = [];
     edgeSelectionList = [];
-  })
+  });
 
-  deleteVertexButton = createButton('Delete Vertex');
-  deleteVertexButton.style('background-color', buttonColor);
-  deleteVertexButton.style('color', 'white');
-  deleteVertexButton.style('font-size', '20px');
-  deleteVertexButton.mousePressed(function() {
-    mode = Mode.DELETE_VERTEX;
-    // clear selection list
-    vertexSelectionList = [];
-    edgeSelectionList = [];
-  })
 
-  placeEdgeButton = createButton('Place Edge');
-  placeEdgeButton.style('background-color', buttonColor);
-  placeEdgeButton.style('color', 'white');
-  placeEdgeButton.style('font-size', '20px');
-  placeEdgeButton.mousePressed(function() {
-    mode = Mode.PLACE_EDGE;
-    // clear selection list
-    vertexSelectionList = [];
-    edgeSelectionList = [];
-  })
+  // // setup the place vertex button
+  // placeVertexButton = createButton('Place Vertex');
+  // placeVertexButton.style('background-color', buttonColor);
+  // placeVertexButton.style('color', 'white');
+  // placeVertexButton.style('font-size', '20px');
+  // placeVertexButton.mousePressed(function() {
+  //   mode = Mode.PLACE_VERTEX;
+  //   // clear selection list
+  //   vertexSelectionList = [];
+  //   edgeSelectionList = [];
+  // })
 
-  deleteEdgeButton = createButton('Delete Edge');
-  deleteEdgeButton.style('background-color', buttonColor);
-  deleteEdgeButton.style('color', 'white');
-  deleteEdgeButton.style('font-size', '20px');
-  deleteEdgeButton.mousePressed(function() {
-    mode = Mode.DELETE_EDGE;
-    // clear selection list
-    vertexSelectionList = [];
-    edgeSelectionList = [];
-  })
+  // deleteVertexButton = createButton('Delete Vertex');
+  // deleteVertexButton.style('background-color', buttonColor);
+  // deleteVertexButton.style('color', 'white');
+  // deleteVertexButton.style('font-size', '20px');
+  // deleteVertexButton.mousePressed(function() {
+  //   mode = Mode.DELETE_VERTEX;
+  //   // clear selection list
+  //   vertexSelectionList = [];
+  //   edgeSelectionList = [];
+  // })
 
-  selectButton = createButton('Select');
-  selectButton.style('background-color', buttonColor);
-  selectButton.style('color', 'white');
-  selectButton.style('font-size', '20px');
-  selectButton.mousePressed(function() {
-    mode = Mode.SELECT;
-    // clear selection list
-    vertexSelectionList = [];
-    edgeSelectionList = [];
-  })
+  // placeEdgeButton = createButton('Place Edge');
+  // placeEdgeButton.style('background-color', buttonColor);
+  // placeEdgeButton.style('color', 'white');
+  // placeEdgeButton.style('font-size', '20px');
+  // placeEdgeButton.mousePressed(function() {
+  //   mode = Mode.PLACE_EDGE;
+  //   // clear selection list
+  //   vertexSelectionList = [];
+  //   edgeSelectionList = [];
+  // })
+
+  // deleteEdgeButton = createButton('Delete Edge');
+  // deleteEdgeButton.style('background-color', buttonColor);
+  // deleteEdgeButton.style('color', 'white');
+  // deleteEdgeButton.style('font-size', '20px');
+  // deleteEdgeButton.mousePressed(function() {
+  //   mode = Mode.DELETE_EDGE;
+  //   // clear selection list
+  //   vertexSelectionList = [];
+  //   edgeSelectionList = [];
+  // })
+
+  // selectButton = createButton('Select');
+  // selectButton.style('background-color', buttonColor);
+  // selectButton.style('color', 'white');
+  // selectButton.style('font-size', '20px');
+  // selectButton.mousePressed(function() {
+  //   mode = Mode.SELECT;
+  //   // clear selection list
+  //   vertexSelectionList = [];
+  //   edgeSelectionList = [];
+  // })
 
   renameButton = createButton('Rename');
   renameButton.style('background-color', buttonColor);
@@ -290,37 +309,81 @@ function setup() {
 function updateButtonPositions() {
   button_x_offset = ((windowWidth / 8) / 4);
   button_grid_unit = windowWidth / 11;
-  placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
+  padding = 2;
+  button_width = button_grid_unit - padding * 2;
+  border_radius = 10;
+  border_color = buttonColor;
 
-  deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
+  modeSelect.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
+  modeSelect.style('width', button_width + 'px');
+  modeSelect.style('height', '30px');
+  modeSelect.style('padding', '0px');
+  modeSelect.style('border-radius', border_radius + 'px');
+  modeSelect.style('border-color', border_color);
+  modeSelect.style('font-size', '20px');
+  modeSelect.style('background-color', vertexColor);
+  modeSelect.style('text-align', 'center');
 
-  placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
+  // placeVertexButton.position(button_grid_unit*0 + button_x_offset, menuHeight / 2 - 15);
 
-  deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
+  // deleteVertexButton.position(button_grid_unit*1 + button_x_offset, menuHeight / 2 - 15);
 
-  selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
+  // placeEdgeButton.position(button_grid_unit*2 + button_x_offset, menuHeight / 2 - 15);
 
-  renderDegreeBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 30);
-  renderDirectionsBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
-  renderBridgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2);
-  renderInfoBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 + 15);
+  // deleteEdgeButton.position(button_grid_unit*3 + button_x_offset, menuHeight / 2 - 15);
 
-  repelBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 30);
-  gravityBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2 - 15);
-  simpleEdgesBox.position(button_grid_unit*6 + button_x_offset, menuHeight / 2);
+  // selectButton.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
+
+  renderDegreeBox.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 30);
+  renderDegreeBox.style('width', button_width + 'px');
+  renderDegreeBox.style('padding', '0px');
+  renderDegreeBox.style('border-radius', border_radius + 'px');
+  renderDegreeBox.style('border-color', border_color);
+  renderDirectionsBox.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 - 15);
+  renderBridgesBox.position(button_grid_unit*4 + button_x_offset, menuHeight / 2);
+  renderInfoBox.position(button_grid_unit*4 + button_x_offset, menuHeight / 2 + 15);
+
+  repelBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 30);
+  gravityBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2 - 15);
+  simpleEdgesBox.position(button_grid_unit*5 + button_x_offset, menuHeight / 2);
   
   gravitySlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 30);
+  gravitySlider.style('width', button_width + 'px');
   springEdgeLengthSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
+  springEdgeLengthSlider.style('width', button_width + 'px');
   springEdgeStrengthSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2);
+  springEdgeStrengthSlider.style('width', button_width + 'px');
   simulationStepsSlider.position(button_grid_unit*7 + button_x_offset, menuHeight / 2 + 15);
+  simulationStepsSlider.style('width', button_width + 'px');
 
   renameButton.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 + 5);
+  renameButton.style('width', button_width + 'px');
+  renameButton.style('padding', '0px');
+  renameButton.style('border-radius', border_radius + 'px');
+  renameButton.style('border-color', border_color);
   renameBox.position(button_grid_unit*8 + button_x_offset, menuHeight / 2 - 30);
+  renameBox.style('width', button_width + 'px');
+  renameBox.style('padding', '0px');
+  renameBox.style('border-radius', border_radius + 'px');
+  renameBox.style('border-color', border_color);
 
   enterCommandButton.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 + 5);
+  enterCommandButton.style('width', button_width + 'px');
+  enterCommandButton.style('padding', '0px');
+  enterCommandButton.style('border-radius', border_radius + 'px');
+  enterCommandButton.style('border-color', border_color);
   enterCommandBox.position(button_grid_unit*9 + button_x_offset, menuHeight / 2 - 30);
+  enterCommandBox.style('width', button_width + 'px');
+  enterCommandBox.style('padding', '0px');
+  enterCommandBox.style('border-radius', border_radius + 'px');
+  enterCommandBox.style('border-color', border_color);
 
-  helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 - 15);
+  helpButton.position(button_grid_unit*10 + button_x_offset, menuHeight / 2 + 5);
+  helpButton.style('width', button_width/2 + 'px');
+  helpButton.style('padding', '0px');
+  helpButton.style('border-radius', border_radius + 'px');
+  helpButton.style('border-color', border_color);
+
 }
 
 function parseCommand(command) {
@@ -683,6 +746,10 @@ function drawEdges() {
       y1 = v1.y;
       x2 = v2.x;
       y2 = v2.y;
+
+      fill(0);
+      stroke(edgeColor);
+      strokeWeight(4);
       line(x1, y1, x2, y2);
     }
   }
@@ -957,18 +1024,20 @@ function draw() {
   if (show_help) {
     drawHelpScreen();
   }
+  // Draw logo
+  image(logo, 0, 0, menuHeight + 10, menuHeight);
 
   // Draw labels for sliders
   fill(0);
   stroke(0);
-  strokeWeight(1);
+  strokeWeight(0);
   textSize(12);
   textFont('Arial');
   textAlign(RIGHT, TOP);
-  text('Gravity: ' + gravity_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 30);
-  text('Distance: ' + spring_edge_length, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 15);
-  text('Repulsion: ' + spring_edge_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2);
-  text('Steps: ' + simulation_steps, button_grid_unit*7 + button_x_offset, menuHeight / 2 + 15);
+  text('Gravity: ' + gravity_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 25);
+  text('Distance: ' + spring_edge_length, button_grid_unit*7 + button_x_offset, menuHeight / 2 - 10);
+  text('Repulsion: ' + spring_edge_strength, button_grid_unit*7 + button_x_offset, menuHeight / 2 + 5);
+  text('Steps: ' + simulation_steps, button_grid_unit*7 + button_x_offset, menuHeight / 2 + 20);
   
   if (repel) {
     stepRepelVerticies();
@@ -1223,38 +1292,38 @@ function updateEdgeSelected(selectionList) {
 }
 
 function updateButtonColors() {
-  placeVertexButton.style('background-color', buttonColor);
-  placeVertexButton.style('color', 'white');
-  deleteVertexButton.style('background-color', buttonColor);
-  deleteVertexButton.style('color', 'white');
-  placeEdgeButton.style('background-color', buttonColor);
-  placeEdgeButton.style('color', 'white');
-  deleteEdgeButton.style('background-color', buttonColor);
-  deleteEdgeButton.style('color', 'white');
-  selectButton.style('background-color', buttonColor);
-  selectButton.style('color', 'white');
-  switch (mode) {
-    case Mode.PLACE_VERTEX:
-      placeVertexButton.style('background-color', selectedColor);
-      placeVertexButton.style('color', 'black');
-      break;
-    case Mode.DELETE_VERTEX:
-      deleteVertexButton.style('background-color', selectedColor);
-      deleteVertexButton.style('color', 'black');
-      break;
-    case Mode.PLACE_EDGE:
-      placeEdgeButton.style('background-color', selectedColor);
-      placeEdgeButton.style('color', 'black');
-      break;
-    case Mode.DELETE_EDGE:
-      deleteEdgeButton.style('background-color', selectedColor);
-      deleteEdgeButton.style('color', 'black');
-      break;
-    case Mode.SELECT:
-      selectButton.style('background-color', selectedColor);
-      selectButton.style('color', 'black');
-      break;
-  }
+  // placeVertexButton.style('background-color', buttonColor);
+  // placeVertexButton.style('color', 'white');
+  // deleteVertexButton.style('background-color', buttonColor);
+  // deleteVertexButton.style('color', 'white');
+  // placeEdgeButton.style('background-color', buttonColor);
+  // placeEdgeButton.style('color', 'white');
+  // deleteEdgeButton.style('background-color', buttonColor);
+  // deleteEdgeButton.style('color', 'white');
+  // selectButton.style('background-color', buttonColor);
+  // selectButton.style('color', 'white');
+  // switch (mode) {
+  //   case Mode.PLACE_VERTEX:
+  //     placeVertexButton.style('background-color', selectedColor);
+  //     placeVertexButton.style('color', 'black');
+  //     break;
+  //   case Mode.DELETE_VERTEX:
+  //     deleteVertexButton.style('background-color', selectedColor);
+  //     deleteVertexButton.style('color', 'black');
+  //     break;
+  //   case Mode.PLACE_EDGE:
+  //     placeEdgeButton.style('background-color', selectedColor);
+  //     placeEdgeButton.style('color', 'black');
+  //     break;
+  //   case Mode.DELETE_EDGE:
+  //     deleteEdgeButton.style('background-color', selectedColor);
+  //     deleteEdgeButton.style('color', 'black');
+  //     break;
+  //   case Mode.SELECT:
+  //     selectButton.style('background-color', selectedColor);
+  //     selectButton.style('color', 'black');
+  //     break;
+  // }
 }
 
 function updateAdjacencyMatrix() {
