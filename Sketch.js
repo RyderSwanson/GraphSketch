@@ -228,6 +228,10 @@ function setup() {
   renderBridgesBox = createCheckbox('Render Bridges', false);
   renderBridgesBox.changed(function() {
     render_bridges = !render_bridges;
+    // Clear all bridge colors
+    for (var i = 0; i < edgeList.length; i++) {
+      edgeList[i].color = null;
+    }
   });
 
   renderInfoBox = createCheckbox('Render Info', false);
@@ -339,7 +343,16 @@ function parseCommand(command) {
       for (var i = 0; i < num_vertices; i++) {
         for (var j = 0; j < num_vertices; j++) {
           if (Math.random() < 0.2 && i !== j) {
-            num_parallel_edges = Math.floor(Math.random() * 3) + 1;
+            // Generate a random number that is most of the time 1
+            if (Math.random() < 0.5) {
+              num_parallel_edges = 1;
+            }
+            else if (Math.random() < 0.75) {
+              num_parallel_edges = 0;
+            }
+            else {
+              num_parallel_edges = Math.floor(Math.random() * 3) + 1;
+            }
             for (var k = 0; k < num_parallel_edges; k++) {
               adjacencyList[i][1].push(j);
               adjacencyList[j][1].push(i);
@@ -503,7 +516,7 @@ function parseCommand(command) {
       }
     }
     // Complete Graph
-    else if (command[1] == 'complete') {
+    else if (command[1] == 'complete' || command[1] == 'com') {
       // This command generates the cartesian product of the current graph with a complete graph
       // The complete graph is generated with the number of verticies defined by the second argument
       // We first generate xy coordinates for the complete graph
@@ -641,6 +654,7 @@ function drawHelpScreen() {
 
   fill(0);
   stroke(0);
+  strokeWeight(1);
   textSize(20);
   textFont('Arial');
   textAlign(RIGHT, TOP);
@@ -966,12 +980,12 @@ function draw() {
 
 function keyPressed() {
   updateInfo();
-  if (keyCode === ENTER && current_text_box === 'rename') {
+  if (keyCode === ENTER && current_text_box === 'rename' && input_text !== '') {
     adjacencyList[vertexSelectionList[0]][0].name = input_text;
     renameBox.value('');
     input_text = '';
   }
-  if (keyCode === ENTER && current_text_box === 'enter_command') {
+  if (keyCode === ENTER && current_text_box === 'enter_command' && enter_command !== '') {
     parseCommand(enter_command);
     enterCommandBox.value('');
     enter_command = '';
@@ -981,51 +995,6 @@ function keyPressed() {
   }
   if (keyCode === DELETE && mode === Mode.SELECT && edgeSelectionList.length > 0) {
     deleteEdge(edgeSelectionList[0]);
-  }
-  if (enter_command === '' && current_text_box === '') {
-    // 'c' key
-    if (keyCode === 67) {
-      // Clear graph
-      adjacencyList = [];
-      edgeList = [];
-    }
-    // 'r' key
-    if (keyCode === 82) {
-      // Random graph
-      adjacencyList = [];
-      edgeList = [];
-      num_vertices = 10;
-      for (var i = 0; i < num_vertices; i++) {
-        x = Math.floor(Math.random() * windowWidth * 0.8 + windowWidth * 0.1);
-        y = Math.floor(Math.random() * windowHeight * 0.8 + windowHeight * 0.1);
-        adjacencyList.push([new Vertex(x, y, i), []]);
-      }
-      for (var i = 0; i < num_vertices; i++) {
-        for (var j = 0; j < num_vertices; j++) {
-          if (Math.random() < 0.2 && i !== j) {
-            // Generate a random number that is most of the time 1
-            if (Math.random() < 0.5) {
-              num_parallel_edges = 1;
-            }
-            else if (Math.random() < 0.75) {
-              num_parallel_edges = 0;
-            }
-            else {
-              num_parallel_edges = Math.floor(Math.random() * 3) + 1;
-            }
-            for (var k = 0; k < num_parallel_edges; k++) {
-              adjacencyList[i][1].push(j);
-              adjacencyList[j][1].push(i);
-              edgeList.push(new Edge(adjacencyList[i][0], adjacencyList[j][0]));
-            }
-          }
-        }
-      }
-    }
-    // 'h' key
-    if (keyCode === 72) {
-      show_help = !show_help;
-    }
   }
 }
 
@@ -1519,6 +1488,7 @@ function calculateForce(vertex) {
   force[1] *= dampen_constant;
 
   friction = 0.02;
+  static_friction_threshold = 2;
   // If out of bounds, add a force to move the vertex back into bounds
   if (adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2) < 0) {
     force[0] -= adjacencyList[vertex][0].x - (adjacencyList[vertex][0].radius/2);
@@ -1533,7 +1503,12 @@ function calculateForce(vertex) {
   if (adjacencyList[vertex][0].y + (adjacencyList[vertex][0].radius/2) > windowHeight) {
     force[1] += windowHeight - adjacencyList[vertex][0].y - (adjacencyList[vertex][0].radius/2);
     //friction
-    adjacencyList[vertex][0].dx *= 1 - friction;
+    if (Math.abs(adjacencyList[vertex][0].dx) < static_friction_threshold) {
+      adjacencyList[vertex][0].dx = 0;
+    }
+    else {
+      adjacencyList[vertex][0].dx *= 1 - friction;
+    }
   }
   if (adjacencyList[vertex][0].y - (adjacencyList[vertex][0].radius/2) < menuHeight) {
     force[1] += menuHeight - adjacencyList[vertex][0].y + (adjacencyList[vertex][0].radius/2);
@@ -1581,7 +1556,7 @@ function stepRepelVerticies() {
       f = calculateForce(j);
       adjacencyList[j][0].dx += f[0];
       adjacencyList[j][0].dy += f[1];
-      
+    
       // Limit the velocity of the vertex
       if (adjacencyList[j][0].dx > max_vel) {
         adjacencyList[j][0].dx = max_vel;
@@ -1602,6 +1577,7 @@ function stepRepelVerticies() {
       // Air resistance
       adjacencyList[j][0].dx *= 1 - (0.02 / simulation_steps);
       adjacencyList[j][0].dy *= 1 - (0.02 / simulation_steps);
+
       
       if (adjacencyList[j][0].selected === true && dragging === true) {
         // vertex is being dragged, so set the velocity to the calculated speed
